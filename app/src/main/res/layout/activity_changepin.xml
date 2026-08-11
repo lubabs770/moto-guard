@@ -10,38 +10,21 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="🛡"
-        android:textSize="48sp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Moto Guard"
+        android:text="Set a new PIN"
         android:textColor="@color/text"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Administered device · locked"
-        android:textColor="@color/muted"
-        android:textSize="13sp" />
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        android:layout_marginTop="36dp"
+        android:layout_marginTop="24dp"
         android:padding="24dp"
         android:background="@drawable/bg_card">
 
         <EditText
-            android:id="@+id/pin"
+            android:id="@+id/newPin"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:background="@drawable/bg_field"
@@ -49,16 +32,27 @@
             android:gravity="center"
             android:textColor="@color/text"
             android:textColorHint="@color/muted"
-            android:letterSpacing="0.3"
-            android:hint="enter PIN" />
+            android:hint="new PIN (min 4)" />
+
+        <EditText
+            android:id="@+id/confirmPin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_field"
+            android:inputType="numberPassword"
+            android:gravity="center"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:hint="confirm new PIN" />
 
         <Button
-            android:id="@+id/unlock"
+            android:id="@+id/save"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="14dp"
             android:background="@drawable/btn_primary"
-            android:text="Unlock"
+            android:text="Save"
             android:textStyle="bold"
             android:textAllCaps="false"
             android:textColor="@color/onAccent" />
@@ -71,12 +65,4 @@
             android:textColor="@color/danger"
             android:textSize="13sp" />
     </LinearLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Admin access via scrcpy / adb"
-        android:textColor="@color/muted"
-        android:textSize="11sp" />
 </LinearLayout>

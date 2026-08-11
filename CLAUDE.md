@@ -18,8 +18,11 @@ device is administered over). Personal repo (`lubabs770`), private.
    (default `0000`, changed in-app via `PinStore`); never bake it into the binary.
 
 ## Architecture (approach "B" — soft lockdown, not hard lock-task)
-- `GuardActivity` — kiosk face + registered as **HOME** (home button can't escape);
-  back disabled; re-applies policy on resume. A dim 120dp square opens the PIN screen.
+- `GuardActivity` — **PIN wall** + registered as **HOME** (home button can't escape);
+  back disabled; re-applies policy on resume; self-ejects to a real launcher when
+  not owner. Correct PIN → `DashboardActivity`.
+- `DashboardActivity` / `ChangePinActivity` — "the app" behind the wall: status,
+  Change PIN, Release, Lock now. Guarded by an `authed` extra.
 - `Policy.kt` — all DO policy: guard = HOME, status bar disabled, `com.android.settings`
   hidden, restrictions (FACTORY_RESET, SAFE_BOOT, ADD_USER, MOUNT_PHYSICAL_MEDIA).
   `apply()` is idempotent; `release()` un-provisions cleanly.
@@ -51,5 +54,5 @@ adb shell dpm set-device-owner com.sam.motoguard/.AdminReceiver
 Add Google accounts (GV etc.) **after** — accounts only block at set time.
 
 ## Escapes
-- PIN: dim square on LOCKED screen → code (default 0000) → Release / Change PIN.
+- PIN: enter on the wall → Unlock → dashboard → Release (default 0000).
 - adb secret: `adb shell am broadcast -a com.sam.motoguard.UNLOCK --es secret 'ADB_SECRET' com.sam.motoguard/.SecretUnlockReceiver`

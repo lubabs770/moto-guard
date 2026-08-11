@@ -21,9 +21,14 @@
             </intent-filter>
         </activity>
 
-        <!-- PIN entry. Correct code -> full un-provision (the sanctioned escape). -->
+        <!-- The app, behind the PIN wall. -->
         <activity
-            android:name=".UnlockActivity"
+            android:name=".DashboardActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
+
+        <activity
+            android:name=".ChangePinActivity"
             android:exported="false"
             android:excludeFromRecents="true" />
 

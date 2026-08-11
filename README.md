@@ -5,11 +5,13 @@ Device Owner kiosk for the headless Moto G7. Neuters the **physical touchscreen*
 reach *Developer Options → Revoke USB debugging* and brick your adb pipeline.
 **adb + scrcpy stay fully open** — the guard never touches debugging features.
 
+UX: the **PIN wall** is the device HOME (every home press lands there). Enter the
+PIN → **dashboard** (status + Change PIN + Release + Lock now).
+
 Two escapes, both un-provision the device cleanly:
-- **In-app PIN** — tap the dim 120dp square on the LOCKED screen → enter code.
-  PIN defaults to **0000** on a fresh install and is changed **in-app behind the
-  current PIN** (Change PIN button). It's device state, not a build secret — a
-  re-flash never resets it.
+- **In-app PIN** — enter PIN on the wall → Unlock → dashboard → **Release device**.
+  PIN defaults to **0000** on a fresh install, changed in-app behind the current
+  PIN (Change PIN). Device state, not a build secret — a re-flash never resets it.
 - **Invisible adb secret** — a broadcast carrying a shared secret. No visible UI.
 
 ## Threat model (read this)
@@ -64,7 +66,7 @@ adb shell dpm set-device-owner com.sam.motoguard/.AdminReceiver
 Add Google accounts (GV etc.) **after** this — accounts only block at set time.
 
 ## Release the device
-- PIN: tap the dim square on the LOCKED screen, enter your code.
+- PIN: enter it on the wall → Unlock → dashboard → Release device.
 - adb secret:
 ```sh
 adb shell am broadcast -a com.sam.motoguard.UNLOCK \
