@@ -1,0 +1,64 @@
+name: build-apk
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+  # Tagging vX.Y.Z also publishes the APK to a GitHub Release.
+
+permissions:
+  contents: write   # needed for the release step on tags
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: SDK packages
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      # Inject real PIN hash + adb secret from repo Secrets so they never live in
+      # git. If a secret is unset the committed placeholder is used (still builds).
+      - name: Inject secrets
+        env:
+          PIN_SHA256: ${{ secrets.PIN_SHA256 }}
+          ADB_SECRET: ${{ secrets.ADB_SECRET }}
+        run: |
+          CFG=app/src/main/java/com/sam/motoguard/Config.kt
+          if [ -n "$PIN_SHA256" ]; then
+            sed -i "s|const val PIN_SHA256 = \".*\"|const val PIN_SHA256 = \"$PIN_SHA256\"|" "$CFG"
+          fi
+          if [ -n "$ADB_SECRET" ]; then
+            sed -i "s|const val ADB_SECRET = \".*\"|const val ADB_SECRET = \"$ADB_SECRET\"|" "$CFG"
+          fi
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moto-guard-apk
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Publish to Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/*.apk
