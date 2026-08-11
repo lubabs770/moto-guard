@@ -44,8 +44,10 @@ class UnlockActivity : Activity() {
         release.setOnClickListener {
             if (PinStore.verify(this, pin.text.toString())) {
                 Policy.release(this)
-                msg.text = "Released. Device is now unmanaged."
-                finish()
+                // Un-provisioned — bounce to a real launcher and tear down our task
+                // so no dead LOCKED screen lingers.
+                Nav.goHome(this)
+                finishAffinity()
             } else backoff(it)
         }
 

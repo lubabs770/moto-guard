@@ -23,6 +23,14 @@ class GuardActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // Only lock the screen while we actually own the device. If we've been
+        // released (or never provisioned), get out of the way to a real launcher
+        // instead of sitting on a toothless LOCKED screen.
+        if (!Policy.isOwner(this)) {
+            Nav.goHome(this)
+            finish()
+            return
+        }
         Policy.apply(this)
     }
 
