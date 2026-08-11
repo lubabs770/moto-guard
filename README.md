@@ -50,6 +50,15 @@ gh secret set ADB_SECRET -b 'your-long-random-string'
 If unset, the committed placeholder is used (fine for a throwaway test build).
 The **PIN is not a secret here** — it ships as 0000 and you change it in-app.
 
+### Signing (stable key = updatable installs)
+The release APK is signed in CI with a fixed PKCS12 keystore from secrets, so
+every build shares one signature and `adb install -r` upgrades in place (an
+ephemeral debug key would force an uninstall each time — impossible once the app
+is Device Owner). Secrets: `KEYSTORE_B64` (base64 of the .p12), `KEYSTORE_PASSWORD`,
+`KEY_ALIAS`, `KEY_PASSWORD`. Keystore backup lives at `~/moto-guard-signing.p12` —
+**lose it and you can't update the installed app** (only a wipe/reinstall fresh).
+Without these secrets the build falls back to the debug key.
+
 ## Provision (ONE time, order matters)
 Device Owner can only be set with **zero accounts** on the device. The Moto ships
 a "Verizon Wireless" preloaded-contacts account — remove its source first.

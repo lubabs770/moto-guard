@@ -15,12 +15,30 @@ android {
         versionName = "0.1.0"
     }
 
+    val ksFile = System.getenv("KEYSTORE_FILE")
+
+    signingConfigs {
+        if (ksFile != null) {
+            create("release") {
+                storeFile = file(ksFile)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+                storeType = "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Debug-signed for now so `adb install` works with zero keystore setup.
-            // Swap to a real release keystore before you trust it in the field.
-            signingConfig = signingConfigs.getByName("debug")
+            // Stable release key from CI secrets when present (so `adb install -r`
+            // works across builds); falls back to the ephemeral debug key locally
+            // / on PRs where the keystore secret isn't available.
+            signingConfig = if (ksFile != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
     compileOptions {

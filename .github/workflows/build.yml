@@ -40,12 +40,22 @@ jobs:
             sed -i "s|const val ADB_SECRET = \".*\"|const val ADB_SECRET = \"$ADB_SECRET\"|" "$CFG"
           fi
 
+      - name: Decode signing keystore
+        if: ${{ secrets.KEYSTORE_B64 != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/release.p12"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon
 
       - name: Upload APK artifact
