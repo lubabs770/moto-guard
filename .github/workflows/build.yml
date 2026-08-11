@@ -28,17 +28,14 @@ jobs:
       - name: SDK packages
         run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
-      # Inject real PIN hash + adb secret from repo Secrets so they never live in
-      # git. If a secret is unset the committed placeholder is used (still builds).
-      - name: Inject secrets
+      # Inject the adb-escape secret from repo Secrets so it never lives in git.
+      # If unset, the committed placeholder is used (still builds). The PIN is NOT
+      # here — it's runtime state (default 0000, settable in-app via PinStore).
+      - name: Inject secret
         env:
-          PIN_SHA256: ${{ secrets.PIN_SHA256 }}
           ADB_SECRET: ${{ secrets.ADB_SECRET }}
         run: |
           CFG=app/src/main/java/com/sam/motoguard/Config.kt
-          if [ -n "$PIN_SHA256" ]; then
-            sed -i "s|const val PIN_SHA256 = \".*\"|const val PIN_SHA256 = \"$PIN_SHA256\"|" "$CFG"
-          fi
           if [ -n "$ADB_SECRET" ]; then
             sed -i "s|const val ADB_SECRET = \".*\"|const val ADB_SECRET = \"$ADB_SECRET\"|" "$CFG"
           fi

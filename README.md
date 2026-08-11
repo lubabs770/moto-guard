@@ -7,6 +7,9 @@ reach *Developer Options → Revoke USB debugging* and brick your adb pipeline.
 
 Two escapes, both un-provision the device cleanly:
 - **In-app PIN** — tap the dim 120dp square on the LOCKED screen → enter code.
+  PIN defaults to **0000** on a fresh install and is changed **in-app behind the
+  current PIN** (Change PIN button). It's device state, not a build secret — a
+  re-flash never resets it.
 - **Invisible adb secret** — a broadcast carrying a shared secret. No visible UI.
 
 ## Threat model (read this)
@@ -21,9 +24,8 @@ Two escapes, both un-provision the device cleanly:
   Keep both safe.
 
 ## Before you build
-Edit `app/src/main/java/com/sam/motoguard/Config.kt`:
-- `PIN_SHA256` — `printf '%s' 'YOURPIN' | sha256sum`  (default is sha256("246813"))
-- `ADB_SECRET` — a long random string.
+Set `ADB_SECRET` as a repo Secret (below). The PIN needs nothing at build time —
+it defaults to 0000 and you change it in-app.
 
 ## Build — CI only, never local
 GitHub Actions builds the APK (`.github/workflows/build.yml`): JDK 17 + Android
@@ -37,14 +39,14 @@ gh run download -n moto-guard-apk      # latest run's artifact -> ./*.apk
 adb install app-release.apk
 ```
 
-### Secrets (keep PIN/secret out of git)
-The workflow rewrites `Config.kt` at build time from repo Secrets, so the real
-values never get committed. Set them once:
+### Secret (keep the adb escape out of git)
+The workflow rewrites `ADB_SECRET` in `Config.kt` at build time from a repo
+Secret, so the real value never gets committed:
 ```sh
-gh secret set PIN_SHA256 -b "$(printf '%s' 'YOURPIN' | sha256sum | awk '{print $1}')"
 gh secret set ADB_SECRET -b 'your-long-random-string'
 ```
-If unset, the committed placeholders are used (fine for a throwaway test build).
+If unset, the committed placeholder is used (fine for a throwaway test build).
+The **PIN is not a secret here** — it ships as 0000 and you change it in-app.
 
 ## Provision (ONE time, order matters)
 Device Owner can only be set with **zero accounts** on the device. The Moto ships

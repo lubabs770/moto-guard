@@ -8,9 +8,10 @@
     android:padding="32dp">
 
     <TextView
+        android:id="@+id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Enter code to release device"
+        android:text="Enter code"
         android:textColor="#C9C9D4"
         android:textSize="16sp" />
 
@@ -23,14 +24,59 @@
         android:gravity="center"
         android:textColor="#FFFFFF"
         android:textColorHint="#555566"
-        android:hint="••••••" />
+        android:hint="current PIN" />
 
-    <Button
-        android:id="@+id/release"
+    <!-- New-PIN fields, revealed only after the current PIN checks out. -->
+    <EditText
+        android:id="@+id/newPin"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:inputType="numberPassword"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#555566"
+        android:hint="new PIN"
+        android:visibility="gone" />
+
+    <EditText
+        android:id="@+id/confirmPin"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:inputType="numberPassword"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#555566"
+        android:hint="confirm new PIN"
+        android:visibility="gone" />
+
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:text="Release" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/release"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Release" />
+
+        <Button
+            android:id="@+id/changePin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="Change PIN" />
+
+        <Button
+            android:id="@+id/save"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Save"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/msg"
