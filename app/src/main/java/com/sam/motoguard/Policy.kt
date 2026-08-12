@@ -17,9 +17,15 @@ import android.os.UserManager
  */
 object Policy {
 
+    /** The SMS gateway — the reason this box exists. Whitelisted alongside us. */
+    const val SMS_PKG = "me.capcom.smsgateway"
+
     private val hiddenApps = listOf(
         "com.android.settings"          // the "Revoke USB debugging" nuke lives here
     )
+
+    /** Lock-task whitelist: only these packages may hold the foreground. */
+    private fun lockTaskPackages(ctx: Context) = arrayOf(ctx.packageName, SMS_PKG)
 
     private val restrictions = listOf(
         UserManager.DISALLOW_FACTORY_RESET,
@@ -50,6 +56,17 @@ object Policy {
 
         dpm.setStatusBarDisabled(admin, true)   // no pulldown -> no quick-settings -> no Settings
 
+        // Kiosk core: pin the foreground to the whitelist. Anything not here
+        // (Settings, launcher, dev-options) cannot come forward, on glass OR scrcpy.
+        // adb itself sits below the UI, so it's untouched. HOME feature lets the
+        // guard stay reachable as the home target; GLOBAL_ACTIONS keeps power menu.
+        dpm.setLockTaskPackages(admin, lockTaskPackages(ctx))
+        dpm.setLockTaskFeatures(
+            admin,
+            DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+                DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS
+        )
+
         for (r in restrictions) dpm.addUserRestriction(admin, r)
         for (p in hiddenApps) dpm.setApplicationHidden(admin, p, true)
     }
@@ -63,10 +80,20 @@ object Policy {
         for (p in hiddenApps) dpm.setApplicationHidden(admin, p, false)
         for (r in restrictions) dpm.clearUserRestriction(admin, r)
         dpm.setStatusBarDisabled(admin, false)
+        dpm.setLockTaskPackages(admin, emptyArray())   // drop the whitelist
         dpm.clearPackagePersistentPreferredActivities(admin, ctx.packageName)
 
         // Relinquish Device Owner entirely. After this the device is normal again.
         @Suppress("DEPRECATION")
         dpm.clearDeviceOwnerApp(ctx.packageName)
+    }
+
+    /** Bring the SMS gateway forward. It's whitelisted, so it stays inside lock-task. */
+    fun launchSms(ctx: Context) {
+        val i = ctx.packageManager.getLaunchIntentForPackage(SMS_PKG)
+        if (i != null) {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i)
+        }
     }
 }

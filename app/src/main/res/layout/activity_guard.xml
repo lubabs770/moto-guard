@@ -27,16 +27,28 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Administered device · locked"
+        android:text="SMS gateway · kiosk"
         android:textColor="@color/muted"
         android:textSize="13sp" />
+
+    <!-- Public: no PIN. The whole point of the box — reachable at the glass. -->
+    <Button
+        android:id="@+id/openSms"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="32dp"
+        android:background="@drawable/btn_primary"
+        android:text="Open SMS Gateway"
+        android:textStyle="bold"
+        android:textAllCaps="false"
+        android:textColor="@color/onAccent" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginTop="36dp"
+        android:layout_marginTop="24dp"
         android:padding="24dp"
         android:background="@drawable/bg_card">
 

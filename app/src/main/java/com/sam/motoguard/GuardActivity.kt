@@ -1,9 +1,10 @@
 package com.sam.motoguard
 
 import android.app.Activity
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -24,6 +25,9 @@ class GuardActivity : Activity() {
 
         val pin = findViewById<EditText>(R.id.pin)
         val msg = findViewById<TextView>(R.id.msg)
+
+        // Public path — no PIN. Anyone at the glass (or scrcpy) opens the SMS app.
+        findViewById<Button>(R.id.openSms).setOnClickListener { Policy.launchSms(this) }
 
         findViewById<Button>(R.id.unlock).setOnClickListener { btn ->
             if (PinStore.verify(this, pin.text.toString())) {
@@ -49,13 +53,23 @@ class GuardActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (!Policy.isOwner(this)) {
+            try { stopLockTask() } catch (_: Exception) {}   // released while pinned
             Nav.goHome(this)
             finish()
             return
         }
         Policy.apply(this)
+        enterLockTaskIfNeeded()
         findViewById<TextView>(R.id.msg).text =
             if (PinStore.isDefault(this)) "PIN is still default 0000 — change it." else ""
+    }
+
+    /** Pin the device to the whitelist. Idempotent — no-op if already locked. */
+    private fun enterLockTaskIfNeeded() {
+        val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        if (am.lockTaskModeState == ActivityManager.LOCK_TASK_MODE_NONE) {
+            try { startLockTask() } catch (_: Exception) { /* not whitelisted yet */ }
+        }
     }
 
     @Deprecated("kiosk: back is disabled on the wall")

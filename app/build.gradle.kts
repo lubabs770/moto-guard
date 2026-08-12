@@ -11,8 +11,8 @@ android {
         applicationId = "com.sam.motoguard"
         minSdk = 28          // Moto G7 = Android 9 / API 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     val ksFile = System.getenv("KEYSTORE_FILE")

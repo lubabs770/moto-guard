@@ -1,12 +1,19 @@
 # moto-guard
 
-Device Owner kiosk for the headless Moto G7. Neuters the **physical touchscreen**
-(guard app is HOME, Settings hidden, status bar off) so nobody at the glass can
-reach *Developer Options → Revoke USB debugging* and brick your adb pipeline.
-**adb + scrcpy stay fully open** — the guard never touches debugging features.
+Device Owner **lock-task kiosk** for the headless Moto G7. Pins the foreground to
+a whitelist — **only the guard app + the SMS gateway** (`me.capcom.smsgateway`)
+may ever come forward, on the physical glass *and* over scrcpy (same shared
+display). Settings, launcher, dev-options are unlaunchable, so nobody can reach
+*Developer Options → Revoke USB debugging* and brick the adb pipeline.
+**adb + scrcpy stay fully open** — they sit below the UI, untouched by lock-task,
+and the guard never touches debugging features.
 
-UX: the **PIN wall** is the device HOME (every home press lands there). Enter the
-PIN → **dashboard** (status + Change PIN + Release + Lock now).
+Not "physical screen dead / scrcpy only" — that's impossible on Android 9's one
+shared display without root. Instead: both surfaces see the *same* tiny whitelist.
+
+UX: the guard is HOME. It shows a **public "Open SMS Gateway" button** (no PIN —
+that's the box's job) plus a **PIN-gated admin** path → **dashboard** (status +
+Change PIN + Release + Lock now).
 
 Two escapes, both un-provision the device cleanly:
 - **In-app PIN** — enter PIN on the wall → Unlock → dashboard → **Release device**.
@@ -83,6 +90,9 @@ adb shell am broadcast -a com.sam.motoguard.UNLOCK \
 ```
 
 ## What it sets (Policy.kt)
-HOME = guard · status bar disabled · Settings hidden · DISALLOW_FACTORY_RESET,
-SAFE_BOOT, ADD_USER, MOUNT_PHYSICAL_MEDIA.
+Lock-task whitelist = `{guard, me.capcom.smsgateway}` (`setLockTaskPackages`) with
+`LOCK_TASK_FEATURE_HOME | GLOBAL_ACTIONS` · HOME = guard · status bar disabled ·
+Settings hidden · DISALLOW_FACTORY_RESET, SAFE_BOOT, ADD_USER, MOUNT_PHYSICAL_MEDIA.
+Guard calls `startLockTask()` on resume; Release / adb-secret call `stopLockTask()`
++ un-provision.
 **Never** DISALLOW_DEBUGGING_FEATURES — that would kill adb.

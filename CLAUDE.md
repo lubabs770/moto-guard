@@ -17,23 +17,30 @@ device is administered over). Personal repo (`lubabs770`), private.
    Secret of the same name. The **PIN is not a secret** — it's runtime state
    (default `0000`, changed in-app via `PinStore`); never bake it into the binary.
 
-## Architecture (approach "B" — soft lockdown, not hard lock-task)
-- `GuardActivity` — **PIN wall** + registered as **HOME** (home button can't escape);
-  back disabled; re-applies policy on resume; self-ejects to a real launcher when
-  not owner. Correct PIN → `DashboardActivity`.
-- `DashboardActivity` / `ChangePinActivity` — "the app" behind the wall: status,
-  Change PIN, Release, Lock now. Guarded by an `authed` extra.
-- `Policy.kt` — all DO policy: guard = HOME, status bar disabled, `com.android.settings`
-  hidden, restrictions (FACTORY_RESET, SAFE_BOOT, ADD_USER, MOUNT_PHYSICAL_MEDIA).
-  `apply()` is idempotent; `release()` un-provisions cleanly.
+## Architecture (lock-task kiosk, whitelist = guard + SMS gateway)
+- `GuardActivity` — HOME + launcher face. **Public** "Open SMS Gateway" button (no
+  PIN) + **PIN-gated** admin. Calls `startLockTask()` on resume (idempotent);
+  self-ejects (after `stopLockTask()`) to a real launcher when not owner. Correct
+  PIN → `DashboardActivity`.
+- `DashboardActivity` / `ChangePinActivity` — "the app" behind the PIN: status,
+  Change PIN, Release, Lock now. Guarded by an `authed` extra. Release does
+  `stopLockTask()` then un-provision.
+- `Policy.kt` — all DO policy: `setLockTaskPackages({guard, me.capcom.smsgateway})`
+  + `setLockTaskFeatures(HOME | GLOBAL_ACTIONS)`, guard = HOME, status bar disabled,
+  `com.android.settings` hidden, restrictions (FACTORY_RESET, SAFE_BOOT, ADD_USER,
+  MOUNT_PHYSICAL_MEDIA). `apply()` idempotent; `release()` clears the whitelist +
+  un-provisions cleanly. `launchSms()` foregrounds the gateway (whitelisted → stays
+  pinned).
 - `PinStore.kt` — hashed PIN in app-private prefs. Default 0000. Change behind current PIN.
-- `UnlockActivity` — PIN-gated **Release** (un-provision) + **Change PIN**.
-- `SecretUnlockReceiver` — invisible adb escape: `am broadcast` carrying `ADB_SECRET`.
+- `SecretUnlockReceiver` — invisible adb escape: `am broadcast` carrying `ADB_SECRET`
+  (from a receiver it can't `stopLockTask`; guard drops the pin on next resume/boot).
 - `BootReceiver` — re-assert policy on boot.
 - Plain `android.*` only — **no AppCompat/androidx** (keeps the APK + build tiny).
 
-Lock-task was rejected on purpose: a hard pin would cage scrcpy too (it's virtual
-touch on the same display). Soft lockdown keeps adb/scrcpy fully free.
+Why lock-task (earlier notes said it was rejected): scrcpy is NOT caged by it —
+scrcpy injects via adb *below* the UI. Lock-task only bounds which apps hold the
+foreground, identically on glass and scrcpy. It does NOT give "physical dead /
+scrcpy alive" — one shared display on Android 9 makes that impossible without root.
 
 ## Threat model — the floor
 Airtight vs. accidental self-sabotage, casual tampering, and **all adb `dpm`

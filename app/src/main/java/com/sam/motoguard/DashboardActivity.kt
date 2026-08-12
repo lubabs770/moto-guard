@@ -36,6 +36,7 @@ class DashboardActivity : Activity() {
                 .setTitle("Release device?")
                 .setMessage("Removes Device Owner and all restrictions. The device becomes fully unmanaged.")
                 .setPositiveButton("Release") { _, _ ->
+                    try { stopLockTask() } catch (_: Exception) {}
                     Policy.release(this)
                     Nav.goHome(this)
                     finishAffinity()
