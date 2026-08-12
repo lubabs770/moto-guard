@@ -1,4 +1,4 @@
-package com.sam.motoguard
+package com.lubabs770.motoguard
 
 import android.content.Context
 import java.security.MessageDigest

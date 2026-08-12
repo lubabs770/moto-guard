@@ -38,7 +38,7 @@ jobs:
         env:
           ADB_SECRET: ${{ secrets.ADB_SECRET }}
         run: |
-          CFG=app/src/main/java/com/sam/motoguard/Config.kt
+          CFG=app/src/main/java/com/lubabs770/motoguard/Config.kt
           if [ -n "$ADB_SECRET" ]; then
             sed -i "s|const val ADB_SECRET = \".*\"|const val ADB_SECRET = \"$ADB_SECRET\"|" "$CFG"
           fi

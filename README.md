@@ -83,7 +83,7 @@ adb shell pm uninstall --user 0 com.motorola.contacts.preloadcontacts
 adb install app/build/outputs/apk/release/app-release.apk
 
 # 3. make it Device Owner  (fails if ANY account still present)
-adb shell dpm set-device-owner com.sam.motoguard/.AdminReceiver
+adb shell dpm set-device-owner com.lubabs770.motoguard/.AdminReceiver
 ```
 Add Google accounts (GV etc.) **after** this — accounts only block at set time.
 
@@ -91,8 +91,8 @@ Add Google accounts (GV etc.) **after** this — accounts only block at set time
 - PIN: enter it on the wall → Unlock → dashboard → Release device.
 - adb secret:
 ```sh
-adb shell am broadcast -a com.sam.motoguard.UNLOCK \
-  --es secret 'YOUR_ADB_SECRET' com.sam.motoguard/.SecretUnlockReceiver
+adb shell am broadcast -a com.lubabs770.motoguard.UNLOCK \
+  --es secret 'YOUR_ADB_SECRET' com.lubabs770.motoguard/.SecretUnlockReceiver
 ```
 
 ## What it sets (Policy.kt)

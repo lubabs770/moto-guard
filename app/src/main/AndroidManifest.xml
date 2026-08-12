@@ -53,7 +53,7 @@
             android:name=".SecretUnlockReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.sam.motoguard.UNLOCK" />
+                <action android:name="com.lubabs770.motoguard.UNLOCK" />
             </intent-filter>
         </receiver>
 

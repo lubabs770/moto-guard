@@ -56,10 +56,10 @@ DO can only be set with **zero accounts** on the device. The Moto ships a
 ```sh
 adb shell pm uninstall --user 0 com.motorola.contacts.preloadcontacts
 adb install app-release.apk
-adb shell dpm set-device-owner com.sam.motoguard/.AdminReceiver
+adb shell dpm set-device-owner com.lubabs770.motoguard/.AdminReceiver
 ```
 Add Google accounts (GV etc.) **after** — accounts only block at set time.
 
 ## Escapes
 - PIN: enter on the wall → Unlock → dashboard → Release (default 0000).
-- adb secret: `adb shell am broadcast -a com.sam.motoguard.UNLOCK --es secret 'ADB_SECRET' com.sam.motoguard/.SecretUnlockReceiver`
+- adb secret: `adb shell am broadcast -a com.lubabs770.motoguard.UNLOCK --es secret 'ADB_SECRET' com.lubabs770.motoguard/.SecretUnlockReceiver`

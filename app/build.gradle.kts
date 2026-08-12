@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.sam.motoguard"
+    namespace = "com.lubabs770.motoguard"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.sam.motoguard"
+        applicationId = "com.lubabs770.motoguard"
         minSdk = 28          // Moto G7 = Android 9 / API 28
         targetSdk = 34
         versionCode = 3
