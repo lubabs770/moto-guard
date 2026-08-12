@@ -3,7 +3,7 @@
 Device Owner (DO) kiosk for a **headless Moto G7** (Android 9 / API 28). Purpose:
 neuter the **physical touchscreen** so nobody at the glass can reach *Developer
 Options → Revoke USB debugging* (which would brick the adb/scrcpy pipeline the
-device is administered over). Personal repo (`lubabs770`), private.
+device is administered over).
 
 ## Golden rules
 1. **NEVER add `UserManager.DISALLOW_DEBUGGING_FEATURES`** (or otherwise disable

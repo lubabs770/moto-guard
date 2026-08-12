@@ -1,19 +1,25 @@
 # moto-guard
 
-Device Owner **lock-task kiosk** for the headless Moto G7. Pins the foreground to
-a whitelist — **only the guard app + the SMS gateway** (`me.capcom.smsgateway`)
-may ever come forward, on the physical glass *and* over scrcpy (same shared
-display). Settings, launcher, dev-options are unlaunchable, so nobody can reach
-*Developer Options → Revoke USB debugging* and brick the adb pipeline.
-**adb + scrcpy stay fully open** — they sit below the UI, untouched by lock-task,
-and the guard never touches debugging features.
+Device Owner **lock-task kiosk** for a headless Android 9 device (built for a
+Motorola Moto G7). Pins the foreground to a **whitelist** — only the guard app
+plus a configured set of allowed apps may ever come forward, on the physical
+glass *and* over scrcpy (same shared display). Settings, launcher, and
+dev-options are unlaunchable, so nobody can reach *Developer Options → Revoke USB
+debugging* and brick the adb pipeline. **adb + scrcpy stay fully open** — they
+sit below the UI, untouched by lock-task, and the guard never touches debugging
+features.
+
+The whitelist lives in one place (`Policy.kt` → `lockTaskPackages`); out of the
+box it's the guard + an SMS gateway (`me.capcom.smsgateway`) + a terminal
+(`com.termux`). Edit that list to fit your box.
 
 Not "physical screen dead / scrcpy only" — that's impossible on Android 9's one
 shared display without root. Instead: both surfaces see the *same* tiny whitelist.
 
-UX: the guard is HOME. It shows a **public "Open SMS Gateway" button** (no PIN —
-that's the box's job) plus a **PIN-gated admin** path → **dashboard** (status +
-Change PIN + Release + Lock now).
+UX: the guard is HOME. It renders a **public "Open &lt;app&gt;" button for each
+whitelisted app** (built at runtime from the whitelist, no PIN — that's the box's
+job) plus a **PIN-gated admin** path → **dashboard** (status + Change PIN +
+Release + Lock now).
 
 Two escapes, both un-provision the device cleanly:
 - **In-app PIN** — enter PIN on the wall → Unlock → dashboard → **Release device**.
@@ -90,9 +96,10 @@ adb shell am broadcast -a com.sam.motoguard.UNLOCK \
 ```
 
 ## What it sets (Policy.kt)
-Lock-task whitelist = `{guard, me.capcom.smsgateway}` (`setLockTaskPackages`) with
+Lock-task whitelist = `{guard} + your allowed apps` (`setLockTaskPackages`) with
 `LOCK_TASK_FEATURE_HOME | GLOBAL_ACTIONS` · HOME = guard · status bar disabled ·
 Settings hidden · DISALLOW_FACTORY_RESET, SAFE_BOOT, ADD_USER, MOUNT_PHYSICAL_MEDIA.
 Guard calls `startLockTask()` on resume; Release / adb-secret call `stopLockTask()`
-+ un-provision.
++ un-provision. The launcher buttons are derived from the same whitelist via
+`Policy.launchablePackages()`, so adding a package is a one-line change.
 **Never** DISALLOW_DEBUGGING_FEATURES — that would kill adb.
