@@ -20,12 +20,17 @@ object Policy {
     /** The SMS gateway — the reason this box exists. Whitelisted alongside us. */
     const val SMS_PKG = "me.capcom.smsgateway"
 
+    /** Termux — persistent ssh foothold (sshd on :8022 over Tailscale). Whitelisted
+     *  so its UI can foreground for setup/maintenance. Its sshd is app-uid (not adb),
+     *  so it can't touch device policy — safe to expose. */
+    const val TERMUX_PKG = "com.termux"
+
     private val hiddenApps = listOf(
         "com.android.settings"          // the "Revoke USB debugging" nuke lives here
     )
 
     /** Lock-task whitelist: only these packages may hold the foreground. */
-    private fun lockTaskPackages(ctx: Context) = arrayOf(ctx.packageName, SMS_PKG)
+    private fun lockTaskPackages(ctx: Context) = arrayOf(ctx.packageName, SMS_PKG, TERMUX_PKG)
 
     private val restrictions = listOf(
         UserManager.DISALLOW_FACTORY_RESET,
