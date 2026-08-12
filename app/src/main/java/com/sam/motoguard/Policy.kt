@@ -32,6 +32,16 @@ object Policy {
     /** Lock-task whitelist: only these packages may hold the foreground. */
     private fun lockTaskPackages(ctx: Context) = arrayOf(ctx.packageName, SMS_PKG, TERMUX_PKG)
 
+    /**
+     * The whitelisted apps the guard offers as public "Open X" launchers — the
+     * whitelist minus ourselves, minus anything not actually installed/launchable.
+     * Single source of truth: the launcher UI is derived from lockTaskPackages().
+     */
+    fun launchablePackages(ctx: Context): List<String> =
+        lockTaskPackages(ctx)
+            .filter { it != ctx.packageName }
+            .filter { ctx.packageManager.getLaunchIntentForPackage(it) != null }
+
     private val restrictions = listOf(
         UserManager.DISALLOW_FACTORY_RESET,
         UserManager.DISALLOW_SAFE_BOOT,
@@ -93,12 +103,16 @@ object Policy {
         dpm.clearDeviceOwnerApp(ctx.packageName)
     }
 
-    /** Bring the SMS gateway forward. It's whitelisted, so it stays inside lock-task. */
-    fun launchSms(ctx: Context) {
-        val i = ctx.packageManager.getLaunchIntentForPackage(SMS_PKG)
-        if (i != null) {
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(i)
-        }
+    /** Bring a whitelisted app forward. It's whitelisted, so it stays inside lock-task. */
+    fun launchApp(ctx: Context, pkg: String) {
+        val i = ctx.packageManager.getLaunchIntentForPackage(pkg) ?: return
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ctx.startActivity(i)
     }
+
+    /** Human label for a package, falling back to the package name. */
+    fun appLabel(ctx: Context, pkg: String): String = try {
+        val pm = ctx.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    } catch (_: Exception) { pkg }
 }

@@ -31,17 +31,14 @@
         android:textColor="@color/muted"
         android:textSize="13sp" />
 
-    <!-- Public: no PIN. The whole point of the box — reachable at the glass. -->
-    <Button
-        android:id="@+id/openSms"
+    <!-- Public: no PIN. One "Open X" button per whitelisted app, built at runtime
+         from Policy.launchablePackages() so it always matches the lock-task list. -->
+    <LinearLayout
+        android:id="@+id/appsContainer"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginTop="32dp"
-        android:background="@drawable/btn_primary"
-        android:text="Open SMS Gateway"
-        android:textStyle="bold"
-        android:textAllCaps="false"
-        android:textColor="@color/onAccent" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="32dp" />
 
     <LinearLayout
         android:layout_width="match_parent"

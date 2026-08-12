@@ -5,8 +5,10 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.TypedValue
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
@@ -26,8 +28,9 @@ class GuardActivity : Activity() {
         val pin = findViewById<EditText>(R.id.pin)
         val msg = findViewById<TextView>(R.id.msg)
 
-        // Public path — no PIN. Anyone at the glass (or scrcpy) opens the SMS app.
-        findViewById<Button>(R.id.openSms).setOnClickListener { Policy.launchSms(this) }
+        // Public path — no PIN. One "Open X" button per whitelisted app, built from
+        // Policy.launchablePackages() so the launcher always matches the lock-task list.
+        buildAppButtons()
 
         findViewById<Button>(R.id.unlock).setOnClickListener { btn ->
             if (PinStore.verify(this, pin.text.toString())) {
@@ -62,6 +65,29 @@ class GuardActivity : Activity() {
         enterLockTaskIfNeeded()
         findViewById<TextView>(R.id.msg).text =
             if (PinStore.isDefault(this)) "PIN is still default 0000 — change it." else ""
+    }
+
+    private fun dp(v: Int): Int = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics
+    ).toInt()
+
+    /** Render one primary "Open <label>" button per launchable whitelisted app. */
+    private fun buildAppButtons() {
+        val container = findViewById<LinearLayout>(R.id.appsContainer)
+        container.removeAllViews()
+        for (pkg in Policy.launchablePackages(this)) {
+            val b = Button(this).apply {
+                text = "Open ${Policy.appLabel(this@GuardActivity, pkg)}"
+                isAllCaps = false
+                setTextColor(resources.getColor(R.color.onAccent, theme))
+                setBackgroundResource(R.drawable.btn_primary)
+                setOnClickListener { Policy.launchApp(this@GuardActivity, pkg) }
+            }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56)
+            ).apply { topMargin = dp(12) }
+            container.addView(b, lp)
+        }
     }
 
     /** Pin the device to the whitelist. Idempotent — no-op if already locked. */
