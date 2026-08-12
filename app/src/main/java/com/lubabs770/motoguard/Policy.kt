@@ -25,6 +25,11 @@ object Policy {
      *  so it can't touch device policy — safe to expose. */
     const val TERMUX_PKG = "com.termux"
 
+    /** Tailscale — the off-LAN transport. Always-on VPN alone proved flaky at
+     *  auto-connecting on boot (registered but no datapath, rx 0), so BootReceiver
+     *  kicks its activity to force the tunnel up. Not whitelisted (bg VpnService). */
+    const val TAILSCALE_PKG = "com.tailscale.ipn"
+
     private val hiddenApps = listOf(
         "com.android.settings"          // the "Revoke USB debugging" nuke lives here
     )
