@@ -17,20 +17,22 @@ device is administered over).
    Secret of the same name. The **PIN is not a secret** — it's runtime state
    (default `0000`, changed in-app via `PinStore`); never bake it into the binary.
 
-## Architecture (lock-task kiosk, whitelist = guard + SMS gateway)
-- `GuardActivity` — HOME + launcher face. **Public** "Open SMS Gateway" button (no
-  PIN) + **PIN-gated** admin. Calls `startLockTask()` on resume (idempotent);
-  self-ejects (after `stopLockTask()`) to a real launcher when not owner. Correct
-  PIN → `DashboardActivity`.
+## Architecture (lock-task kiosk, whitelist = guard + SMS gateway + Termux)
+- `GuardActivity` — HOME + launcher face. **Public** "Open <app>" buttons (no PIN),
+  built at runtime by `buildAppButtons()` from `Policy.launchablePackages()` so the
+  launcher always matches the whitelist. Plus **PIN-gated** admin. Calls
+  `startLockTask()` on resume (idempotent); self-ejects (after `stopLockTask()`) to
+  a real launcher when not owner. Correct PIN → `DashboardActivity`.
 - `DashboardActivity` / `ChangePinActivity` — "the app" behind the PIN: status,
   Change PIN, Release, Lock now. Guarded by an `authed` extra. Release does
   `stopLockTask()` then un-provision.
-- `Policy.kt` — all DO policy: `setLockTaskPackages({guard, me.capcom.smsgateway})`
-  + `setLockTaskFeatures(HOME | GLOBAL_ACTIONS)`, guard = HOME, status bar disabled,
-  `com.android.settings` hidden, restrictions (FACTORY_RESET, SAFE_BOOT, ADD_USER,
-  MOUNT_PHYSICAL_MEDIA). `apply()` idempotent; `release()` clears the whitelist +
-  un-provisions cleanly. `launchSms()` foregrounds the gateway (whitelisted → stays
-  pinned).
+- `Policy.kt` — all DO policy: `setLockTaskPackages({guard, me.capcom.smsgateway,
+  com.termux})` + `setLockTaskFeatures(HOME | GLOBAL_ACTIONS)`, guard = HOME, status
+  bar disabled, `com.android.settings` hidden, restrictions (FACTORY_RESET,
+  SAFE_BOOT, ADD_USER, MOUNT_PHYSICAL_MEDIA). `apply()` idempotent; `release()`
+  clears the whitelist + un-provisions cleanly. `launchApp(pkg)` foregrounds a
+  whitelisted app (stays pinned); `launchablePackages()` is the single source for
+  the launcher buttons.
 - `PinStore.kt` — hashed PIN in app-private prefs. Default 0000. Change behind current PIN.
 - `SecretUnlockReceiver` — invisible adb escape: `am broadcast` carrying `ADB_SECRET`
   (from a receiver it can't `stopLockTask`; guard drops the pin on next resume/boot).
