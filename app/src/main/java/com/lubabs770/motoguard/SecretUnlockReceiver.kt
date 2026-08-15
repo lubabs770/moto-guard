@@ -16,13 +16,19 @@ import java.security.MessageDigest
 class SecretUnlockReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         val given = intent.getStringExtra("secret") ?: return
-        // Constant-time compare: MessageDigest.isEqual won't short-circuit on the
-        // first mismatched byte, so it leaks no length/prefix info via timing. The
+        // Constant-time compare over fixed-length SHA-256 digests, matching
+        // PinStore.verify. Hashing first is what makes it truly constant-time:
+        // MessageDigest.isEqual short-circuits when the two arrays differ in
+        // length, so comparing the raw secrets would leak the secret's length via
+        // timing. Both digests are 32 bytes, so no length/prefix info leaks. The
         // secret is long+random so timing isn't the weak link anyway — belt & braces.
-        val a = given.toByteArray(Charsets.UTF_8)
-        val b = Config.ADB_SECRET.toByteArray(Charsets.UTF_8)
+        val a = sha256(given)
+        val b = sha256(Config.ADB_SECRET)
         if (MessageDigest.isEqual(a, b)) {
             Policy.release(ctx)
         }
     }
+
+    private fun sha256(s: String): ByteArray =
+        MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8))
 }
