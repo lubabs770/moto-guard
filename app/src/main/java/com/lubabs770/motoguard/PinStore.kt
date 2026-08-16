@@ -30,7 +30,13 @@ object PinStore {
     private fun currentHash(ctx: Context): String =
         prefs(ctx).getString(KEY, null) ?: sha256(DEFAULT_PIN)
 
-    fun verify(ctx: Context, pin: String): Boolean = sha256(pin) == currentHash(ctx)
+    // Constant-time compare: MessageDigest.isEqual won't short-circuit on the
+    // first mismatched byte, matching the SecretUnlockReceiver hardening. Both
+    // sides are fixed-length SHA-256 hex, so this leaks no timing info.
+    fun verify(ctx: Context, pin: String): Boolean = MessageDigest.isEqual(
+        sha256(pin).toByteArray(Charsets.UTF_8),
+        currentHash(ctx).toByteArray(Charsets.UTF_8)
+    )
 
     fun setPin(ctx: Context, newPin: String) {
         prefs(ctx).edit().putString(KEY, sha256(newPin)).apply()

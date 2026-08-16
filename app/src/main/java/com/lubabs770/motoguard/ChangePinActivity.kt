@@ -26,6 +26,11 @@ class ChangePinActivity : Activity() {
             val b = confirm.text.toString()
             when {
                 a.length < 4 -> msg.text = "PIN must be at least 4 digits"
+                // Digits only: the wall (activity_guard) is a numberPassword field, so a
+                // non-digit PIN would be un-typeable at the glass — a self-lockout. The
+                // input field enforces this too, but validate in case text arrives another
+                // way (paste / injection).
+                !a.all { it.isDigit() } -> msg.text = "PIN must be digits only"
                 a != b -> msg.text = "PINs don't match"
                 else -> {
                     PinStore.setPin(this, a)

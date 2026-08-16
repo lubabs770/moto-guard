@@ -28,10 +28,6 @@ class GuardActivity : Activity() {
         val pin = findViewById<EditText>(R.id.pin)
         val msg = findViewById<TextView>(R.id.msg)
 
-        // Public path — no PIN. One "Open X" button per whitelisted app, built from
-        // Policy.launchablePackages() so the launcher always matches the lock-task list.
-        buildAppButtons()
-
         findViewById<Button>(R.id.unlock).setOnClickListener { btn ->
             if (PinStore.verify(this, pin.text.toString())) {
                 pin.text.clear()
@@ -63,6 +59,11 @@ class GuardActivity : Activity() {
         }
         Policy.apply(this)
         enterLockTaskIfNeeded()
+        // Rebuild on every resume, not just onCreate: this activity is singleInstance
+        // HOME, so a whitelisted app installed after first create (e.g. Termux/SMS
+        // gateway pushed via adb) would otherwise never surface a button. Rebuilding
+        // here keeps the launcher matching Policy.launchablePackages(). Cheap (0–2 apps).
+        buildAppButtons()
         findViewById<TextView>(R.id.msg).text =
             if (PinStore.isDefault(this)) "PIN is still default 0000 — change it." else ""
     }
