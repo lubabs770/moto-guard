@@ -31,16 +31,24 @@ jobs:
       - name: SDK packages
         run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
-      # Inject the adb-escape secret from repo Secrets so it never lives in git.
-      # If unset, the committed placeholder is used (still builds). The PIN is NOT
-      # here — it's runtime state (default 0000, settable in-app via PinStore).
-      - name: Inject secret
+      # Inject the escape-hatch secrets from repo Secrets so they never live in
+      # git. Unset ones keep the committed placeholder (still builds). The PIN is
+      # NOT here — it's runtime state (default 0000, settable in-app via PinStore).
+      - name: Inject secrets
         env:
           ADB_SECRET: ${{ secrets.ADB_SECRET }}
+          SMS_SECRET: ${{ secrets.SMS_SECRET }}
+          SMS_ALLOWED_SENDERS: ${{ secrets.SMS_ALLOWED_SENDERS }}
         run: |
           CFG=app/src/main/java/com/lubabs770/motoguard/Config.kt
           if [ -n "$ADB_SECRET" ]; then
             sed -i "s|const val ADB_SECRET = \".*\"|const val ADB_SECRET = \"$ADB_SECRET\"|" "$CFG"
+          fi
+          if [ -n "$SMS_SECRET" ]; then
+            sed -i "s|const val SMS_SECRET = \".*\"|const val SMS_SECRET = \"$SMS_SECRET\"|" "$CFG"
+          fi
+          if [ -n "$SMS_ALLOWED_SENDERS" ]; then
+            sed -i "s|const val SMS_ALLOWED_SENDERS = \".*\"|const val SMS_ALLOWED_SENDERS = \"$SMS_ALLOWED_SENDERS\"|" "$CFG"
           fi
 
       - name: Decode signing keystore

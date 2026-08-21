@@ -55,8 +55,10 @@ class GuardActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (!Policy.isOwner(this)) {
-            try { stopLockTask() } catch (_: Exception) {}   // released while pinned
+        // Released (no longer owner) or stood down by a remote `open` — either way
+        // the wall is not supposed to hold. Unpin and get out of the way.
+        if (!Policy.isOwner(this) || Policy.isStoodDown(this)) {
+            try { stopLockTask() } catch (_: Exception) {}
             Nav.goHome(this)
             finish()
             return

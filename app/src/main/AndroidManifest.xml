@@ -57,6 +57,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- SMS control channel: ControlApi over text, for when adb can't reach the
+             device. Gated on BROADCAST_SMS (system-only) so no other app on the
+             device can forge a command, then on the allow-list + shared secret. -->
+        <receiver
+            android:name=".SmsControlReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Re-assert policy after reboot. -->
         <receiver
             android:name=".BootReceiver"
@@ -68,4 +80,9 @@
     </application>
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- SMS control channel. Both are runtime permissions; the device is headless,
+         so Policy.apply() self-grants them as Device Owner instead of prompting. -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
 </manifest>

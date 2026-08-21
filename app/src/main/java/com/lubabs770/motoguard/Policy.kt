@@ -1,5 +1,6 @@
 package com.lubabs770.motoguard
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -16,6 +17,9 @@ import android.os.UserManager
  * never adb. Do not add it.
  */
 object Policy {
+
+    private const val PREFS = "guard"
+    private const val KEY_STOOD_DOWN = "stood_down"
 
     /** The SMS gateway — the reason this box exists. Whitelisted alongside us. */
     const val SMS_PKG = "me.capcom.smsgateway"
@@ -54,11 +58,24 @@ object Policy {
 
     fun isOwner(ctx: Context): Boolean = dpm(ctx).isDeviceOwnerApp(ctx.packageName)
 
-    /** Idempotent — safe to call on every launch and on boot. */
+    /**
+     * Idempotent — safe to call on every launch and on boot.
+     *
+     * No-op while stood down (see standDown), so a reboot or a stray
+     * GuardActivity.onResume can't silently re-kiosk the device out from under
+     * whoever was let in remotely. Only rearm() ends a stand-down.
+     */
     fun apply(ctx: Context) {
         if (!isOwner(ctx)) return
+        if (isStoodDown(ctx)) return
         val dpm = dpm(ctx)
         val admin = AdminReceiver.component(ctx)
+
+        // Self-grant the SMS control channel's permissions. RECEIVE_SMS/SEND_SMS
+        // are runtime permissions and this device is headless — nobody is at the
+        // glass to tap Allow. Device Owner can grant them to any app, us included.
+        grantSelf(ctx, dpm, admin, Manifest.permission.RECEIVE_SMS)
+        grantSelf(ctx, dpm, admin, Manifest.permission.SEND_SMS)
 
         // Guard app becomes the permanent HOME, so the home button can't escape.
         val home = IntentFilter(Intent.ACTION_MAIN).apply {
@@ -92,6 +109,7 @@ object Policy {
         val dpm = dpm(ctx)
         val admin = AdminReceiver.component(ctx)
 
+        setStoodDown(ctx, false)
         for (p in hiddenApps) dpm.setApplicationHidden(admin, p, false)
         for (r in restrictions) dpm.clearUserRestriction(admin, r)
         dpm.setStatusBarDisabled(admin, false)
@@ -101,6 +119,69 @@ object Policy {
         // Relinquish Device Owner entirely. After this the device is normal again.
         @Suppress("DEPRECATION")
         dpm.clearDeviceOwnerApp(ctx.packageName)
+    }
+
+    private fun grantSelf(
+        ctx: Context, dpm: DevicePolicyManager, admin: ComponentName, perm: String
+    ) {
+        try {
+            dpm.setPermissionGrantState(
+                admin, ctx.packageName, perm,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+            )
+        } catch (_: Exception) { /* permission not in the manifest on this build */ }
+    }
+
+    /** True while a remote `open` has suspended the kiosk. Survives reboot. */
+    fun isStoodDown(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_STOOD_DOWN, false)
+
+    private fun setStoodDown(ctx: Context, v: Boolean) =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_STOOD_DOWN, v).apply()
+
+    /**
+     * The reversible escape: drop the kiosk but KEEP Device Owner.
+     *
+     * Everything release() does except clearDeviceOwnerApp() — the whitelist,
+     * the HOME pin, the status bar and the hidden Settings all come back with
+     * rearm(). Use this to let a human in; use release() only when the device
+     * should stop being managed for good.
+     */
+    fun standDown(ctx: Context) {
+        if (!isOwner(ctx)) return
+        val dpm = dpm(ctx)
+        val admin = AdminReceiver.component(ctx)
+
+        setStoodDown(ctx, true)
+
+        for (p in hiddenApps) dpm.setApplicationHidden(admin, p, false)
+        dpm.setStatusBarDisabled(admin, false)
+        dpm.setLockTaskPackages(admin, emptyArray())
+        dpm.clearPackagePersistentPreferredActivities(admin, ctx.packageName)
+
+        // Dropping the whitelist ends lock task on most builds, but not reliably
+        // on API 28. Bounce through the guard, which is still ours and can call
+        // stopLockTask() from the foreground, then hand control to a launcher.
+        try {
+            ctx.startActivity(
+                Intent(ctx, GuardActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (_: Exception) { /* not pinned / no foreground; policy already relaxed */ }
+    }
+
+    /** End a stand-down and put the kiosk back exactly as it was. */
+    fun rearm(ctx: Context) {
+        setStoodDown(ctx, false)
+        apply(ctx)
+        try {
+            ctx.startActivity(
+                Intent(ctx, GuardActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (_: Exception) {}
     }
 
     /** Bring a whitelisted app forward. It's whitelisted, so it stays inside lock-task. */
