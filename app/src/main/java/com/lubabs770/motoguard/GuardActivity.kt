@@ -6,20 +6,25 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * The PIN wall — also the device HOME, so every home press lands here while
- * provisioned. Correct PIN opens the dashboard ("the app"). If we're NOT the
- * device owner (released / never provisioned) it self-ejects to a real launcher
- * rather than sitting on a toothless lock.
+ * The wall — also the device HOME, so every home press lands here while
+ * provisioned. It shows the operator exactly where they stand and gives them no
+ * lever at all:
+ *
+ *  - read-only state (who holds the key, is the kiosk armed, is a PIN set)
+ *  - the enrollment token, while there is still no keyholder
+ *  - the PIN box, which opens the panel the KEYHOLDER uses
+ *
+ * If we are not the device owner, or the keyholder has stood the kiosk down, it
+ * self-ejects to a real launcher rather than sitting on a toothless lock.
  */
 class GuardActivity : Activity() {
-
-    private var fails = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,31 +37,33 @@ class GuardActivity : Activity() {
         // Policy.launchablePackages() so the launcher always matches the lock-task list.
         buildAppButtons()
 
-        findViewById<Button>(R.id.unlock).setOnClickListener { btn ->
+        findViewById<Button>(R.id.unlock).setOnClickListener {
+            val wait = PinStore.lockedForMs(this)
+            if (wait > 0) {
+                pin.text.clear()
+                msg.text = "Locked. Try again in ${(wait / 1000) + 1}s"
+                return@setOnClickListener
+            }
             if (PinStore.verify(this, pin.text.toString())) {
                 pin.text.clear()
                 msg.text = ""
-                fails = 0
                 startActivity(
                     Intent(this, DashboardActivity::class.java)
                         .putExtra(DashboardActivity.EXTRA_AUTHED, true)
                 )
             } else {
-                fails++
                 pin.text.clear()
-                msg.text = "Wrong PIN ($fails)"
-                if (fails >= 5) {
-                    btn.isEnabled = false
-                    btn.postDelayed({ btn.isEnabled = true; fails = 0 }, 30_000)
-                }
+                val now = PinStore.lockedForMs(this)
+                msg.text = if (now > 0) "Wrong PIN. Locked ${(now / 1000) + 1}s" else "Wrong PIN"
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // Released (no longer owner) or stood down by a remote `open` — either way
-        // the wall is not supposed to hold. Unpin and get out of the way.
+
+        // Released, or stood down by the keyholder — either way the wall is not
+        // supposed to hold. Unpin and get out of the way.
         if (!Policy.isOwner(this) || Policy.isStoodDown(this)) {
             try { stopLockTask() } catch (_: Exception) {}
             Nav.goHome(this)
@@ -65,8 +72,39 @@ class GuardActivity : Activity() {
         }
         Policy.apply(this)
         enterLockTaskIfNeeded()
-        findViewById<TextView>(R.id.msg).text =
-            if (PinStore.isDefault(this)) "PIN is still default 0000 — change it." else ""
+        renderState()
+    }
+
+    /** Everything on the public screen is a statement of fact, never a control. */
+    private fun renderState() {
+        val enrolled = Keyholder.isEnrolled(this)
+
+        findViewById<TextView>(R.id.stateKeyholder).text =
+            "Keyholder: " + if (enrolled) Keyholder.maskedNumber(this) else "none yet"
+        findViewById<TextView>(R.id.stateKiosk).text =
+            "Kiosk: " + if (Policy.isStoodDown(this)) "open" else "armed"
+        findViewById<TextView>(R.id.statePin).text =
+            "PIN: " + if (PinStore.isSet(this)) "set" else "not set"
+
+        // The enrollment token is meant to be read off the glass and handed over.
+        // It disappears for good the moment someone claims the role.
+        val enrollCard = findViewById<View>(R.id.enrollCard)
+        if (enrolled) {
+            enrollCard.visibility = View.GONE
+        } else {
+            enrollCard.visibility = View.VISIBLE
+            val token = Keyholder.enrollToken(this) ?: ""
+            findViewById<TextView>(R.id.enrollToken).text = token
+            findViewById<TextView>(R.id.enrollHow).text =
+                "They text this device:\nMG $token claim THEIRCODE"
+        }
+
+        // No PIN set means no panel exists to open — say so instead of offering
+        // a box that can never succeed.
+        val hasPin = PinStore.isSet(this)
+        findViewById<View>(R.id.pinCard).visibility = if (hasPin) View.VISIBLE else View.GONE
+        findViewById<TextView>(R.id.noPinHint).visibility =
+            if (hasPin) View.GONE else View.VISIBLE
     }
 
     private fun dp(v: Int): Int = TypedValue.applyDimension(

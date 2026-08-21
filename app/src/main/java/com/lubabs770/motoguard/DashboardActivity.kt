@@ -1,15 +1,20 @@
 package com.lubabs770.motoguard
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 
 /**
- * "The app" — reached only through the PIN wall. Shows status and the actions:
- * Change PIN, Release (un-provision), Lock now (back to the wall).
+ * The panel, behind the PIN. This is the KEYHOLDER's console for when they have
+ * the device in hand — it mirrors the everyday SMS commands and nothing more.
+ *
+ * Anything that could end the arrangement — rotating the code, handing the role
+ * on, un-provisioning — is NOT here. Those live one tier deeper, in
+ * KeyholderActivity, behind the keyholder's code rather than the PIN, so that a
+ * PIN shoulder-surfed or ground down by patient guessing buys the kiosk being
+ * opened and nothing irreversible.
  */
 class DashboardActivity : Activity() {
 
@@ -18,7 +23,6 @@ class DashboardActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Only reachable via the PIN wall (or adb, which is already trusted).
         if (!intent.getBooleanExtra(EXTRA_AUTHED, false)) {
             Nav.goHome(this); finish(); return
         }
@@ -31,32 +35,31 @@ class DashboardActivity : Activity() {
             )
         }
 
-        findViewById<Button>(R.id.release).setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Release device?")
-                .setMessage("Removes Device Owner and all restrictions. The device becomes fully unmanaged.")
-                .setPositiveButton("Release") { _, _ ->
-                    try { stopLockTask() } catch (_: Exception) {}
-                    Policy.release(this)
-                    Nav.goHome(this)
-                    finishAffinity()
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+        findViewById<Button>(R.id.keyholder).setOnClickListener {
+            startActivity(
+                Intent(this, KeyholderActivity::class.java)
+                    .putExtra(EXTRA_AUTHED, true)
+            )
+        }
+
+        findViewById<Button>(R.id.standDown).setOnClickListener {
+            // Same reversible escape as `open` over SMS: kiosk off, owner kept.
+            Policy.standDown(this)
+            finish()
         }
 
         findViewById<Button>(R.id.lock).setOnClickListener {
-            // Back to the wall.
-            finish()
+            finish()   // back to the wall
         }
     }
 
     override fun onResume() {
         super.onResume()
-        val owner = Policy.isOwner(this)
         findViewById<TextView>(R.id.statusOwner).text =
-            "Device owner: " + if (owner) "active ✓" else "not set"
-        findViewById<TextView>(R.id.statusPin).text =
-            "PIN: " + if (PinStore.isDefault(this)) "default 0000 — change it" else "set ✓"
+            "Device owner: " + if (Policy.isOwner(this)) "active" else "not set"
+        findViewById<TextView>(R.id.statusKiosk).text =
+            "Kiosk: " + if (Policy.isStoodDown(this)) "open" else "armed"
+        findViewById<TextView>(R.id.statusKeyholder).text =
+            "Keyholder: " + if (Keyholder.isEnrolled(this)) Keyholder.maskedNumber(this) else "none yet"
     }
 }

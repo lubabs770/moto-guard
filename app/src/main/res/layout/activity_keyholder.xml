@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tier 3: the actions that can end the arrangement. Gated on the keyholder's
+     SMS code, which the operator is not supposed to know, so a guessed or
+     shoulder-surfed PIN never reaches this far. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="28dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Keyholder actions"
+            android:textColor="@color/text"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Each action re-checks the keyholder code."
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/code"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/bg_field"
+            android:inputType="textPassword"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:hint="keyholder code" />
+
+        <!-- Rotate -->
+        <EditText
+            android:id="@+id/newCode"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_field"
+            android:inputType="text"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:hint="new code (6-32 letters or digits)" />
+
+        <Button
+            android:id="@+id/rotate"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/btn_ghost"
+            android:text="Rotate code"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
+
+        <!-- Handover -->
+        <EditText
+            android:id="@+id/newNumber"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_field"
+            android:inputType="phone"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:hint="new keyholder's number" />
+
+        <Button
+            android:id="@+id/handover"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/btn_ghost"
+            android:text="Start handover"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
+
+        <Button
+            android:id="@+id/release"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="32dp"
+            android:background="@drawable/btn_danger"
+            android:text="Release device (unmanage)"
+            android:textAllCaps="false"
+            android:textColor="@color/danger" />
+
+        <TextView
+            android:id="@+id/msg"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/accent"
+            android:textSize="13sp" />
+    </LinearLayout>
+</ScrollView>

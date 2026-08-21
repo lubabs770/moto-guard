@@ -1,86 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Tier 2: behind the PIN. Everyday keyholder controls only — nothing here can
+     end the arrangement. The irreversible actions live in activity_keyholder. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg"
-    android:padding="28dp">
+    android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Moto Guard"
-        android:textColor="@color/text"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="control panel"
-        android:textColor="@color/muted"
-        android:textSize="13sp" />
-
-    <!-- Status card -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginTop="24dp"
-        android:padding="20dp"
-        android:background="@drawable/bg_card">
+        android:padding="28dp">
 
         <TextView
-            android:id="@+id/statusOwner"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Moto Guard"
             android:textColor="@color/text"
-            android:textSize="15sp"
-            android:text="Device owner: —" />
+            android:textSize="26sp"
+            android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/statusPin"
             android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="control panel"
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="24dp"
+            android:padding="20dp"
+            android:background="@drawable/bg_card">
+
+            <TextView
+                android:id="@+id/statusOwner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text"
+                android:textSize="15sp"
+                android:text="Device owner: —" />
+
+            <TextView
+                android:id="@+id/statusKiosk"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/text"
+                android:textSize="15sp"
+                android:text="Kiosk: —" />
+
+            <TextView
+                android:id="@+id/statusKeyholder"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/text"
+                android:textSize="15sp"
+                android:text="Keyholder: —" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/changePin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/btn_ghost"
+            android:text="Change PIN"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
+
+        <Button
+            android:id="@+id/standDown"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/btn_ghost"
+            android:text="Open kiosk (device owner kept)"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
+
+        <Button
+            android:id="@+id/keyholder"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/btn_ghost"
+            android:text="Keyholder actions…"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
+
+        <TextView
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:textColor="@color/text"
-            android:textSize="15sp"
-            android:text="PIN: —" />
+            android:text="Rotate code, hand over, release. Needs the keyholder's SMS code, not the PIN."
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/lock"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/btn_primary"
+            android:text="Lock now"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:textColor="@color/onAccent" />
     </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <Button
-        android:id="@+id/changePin"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:background="@drawable/btn_ghost"
-        android:text="Change PIN"
-        android:textAllCaps="false"
-        android:textColor="@color/text" />
-
-    <Button
-        android:id="@+id/release"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/btn_danger"
-        android:text="Release device (unmanage)"
-        android:textAllCaps="false"
-        android:textColor="@color/danger" />
-
-    <Button
-        android:id="@+id/lock"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/btn_primary"
-        android:text="Lock now"
-        android:textStyle="bold"
-        android:textAllCaps="false"
-        android:textColor="@color/onAccent" />
-</LinearLayout>
+</ScrollView>

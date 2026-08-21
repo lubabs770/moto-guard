@@ -1,91 +1,202 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The public wall. Everything above the PIN box is read-only: it tells the
+     operator where they stand and hands them no lever. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
     android:background="@color/bg"
-    android:padding="28dp">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🛡"
-        android:textSize="48sp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Moto Guard"
-        android:textColor="@color/text"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="SMS gateway · kiosk"
-        android:textColor="@color/muted"
-        android:textSize="13sp" />
-
-    <!-- Public: no PIN. One "Open X" button per whitelisted app, built at runtime
-         from Policy.launchablePackages() so it always matches the lock-task list. -->
-    <LinearLayout
-        android:id="@+id/appsContainer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="32dp" />
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        android:layout_marginTop="24dp"
-        android:padding="24dp"
-        android:background="@drawable/bg_card">
-
-        <EditText
-            android:id="@+id/pin"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:background="@drawable/bg_field"
-            android:inputType="numberPassword"
-            android:gravity="center"
-            android:textColor="@color/text"
-            android:textColorHint="@color/muted"
-            android:letterSpacing="0.3"
-            android:hint="enter PIN" />
-
-        <Button
-            android:id="@+id/unlock"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/btn_primary"
-            android:text="Unlock"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:textColor="@color/onAccent" />
+        android:gravity="center_horizontal"
+        android:padding="28dp">
 
         <TextView
-            android:id="@+id/msg"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:textColor="@color/danger"
-            android:textSize="13sp" />
-    </LinearLayout>
+            android:text="🛡"
+            android:textSize="44sp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Admin access via scrcpy / adb"
-        android:textColor="@color/muted"
-        android:textSize="11sp" />
-</LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Moto Guard"
+            android:textColor="@color/text"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="kiosk · keyholder lock"
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
+
+        <!-- State card: facts only. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="22dp"
+            android:padding="18dp"
+            android:background="@drawable/bg_card">
+
+            <TextView
+                android:id="@+id/stateKeyholder"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text"
+                android:textSize="14sp"
+                android:text="Keyholder: —" />
+
+            <TextView
+                android:id="@+id/stateKiosk"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/text"
+                android:textSize="14sp"
+                android:text="Kiosk: —" />
+
+            <TextView
+                android:id="@+id/statePin"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/text"
+                android:textSize="14sp"
+                android:text="PIN: —" />
+        </LinearLayout>
+
+        <!-- Enrollment: visible only until someone claims the keyholder role.
+             It is meant to be read off the glass and handed over. -->
+        <LinearLayout
+            android:id="@+id/enrollCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:padding="18dp"
+            android:background="@drawable/bg_card"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No keyholder yet"
+                android:textColor="@color/danger"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="Give this token to the person who will hold the key."
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/enrollToken"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/accent"
+                android:textSize="30sp"
+                android:textStyle="bold"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.15"
+                android:text="—" />
+
+            <TextView
+                android:id="@+id/enrollHow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text"
+                android:textSize="12sp"
+                android:text="" />
+        </LinearLayout>
+
+        <!-- Public: no PIN. One "Open X" button per whitelisted app, built at runtime
+             from Policy.launchablePackages() so it always matches the lock-task list. -->
+        <LinearLayout
+            android:id="@+id/appsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:id="@+id/noPinHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:gravity="center"
+            android:text="No PIN set. The keyholder sets one by SMS before the panel exists."
+            android:textColor="@color/muted"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/pinCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="20dp"
+            android:padding="20dp"
+            android:background="@drawable/bg_card">
+
+            <EditText
+                android:id="@+id/pin"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:background="@drawable/bg_field"
+                android:inputType="numberPassword"
+                android:gravity="center"
+                android:textColor="@color/text"
+                android:textColorHint="@color/muted"
+                android:letterSpacing="0.3"
+                android:hint="enter PIN" />
+
+            <Button
+                android:id="@+id/unlock"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/btn_primary"
+                android:text="Unlock"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:textColor="@color/onAccent" />
+
+            <TextView
+                android:id="@+id/msg"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/danger"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:text="Controlled by SMS from the keyholder. No local override."
+            android:textColor="@color/muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+</ScrollView>
