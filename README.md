@@ -141,13 +141,22 @@ keyholder decorative). Every route out goes through the keyholder.
   hardware key combo, factory-resets below the policy layer. No Android device
   blocks that.
 - **Inbound texts are readable on the device**, and that is *why* the design
-  works the way it does. Anything with adb or a whitelisted terminal can dump the
-  SMS database — `adb shell content query --uri content://sms/inbox`, or
-  `termux-sms-list`. Lock-task only governs what can come to the foreground, not
-  what a shell can read, so keeping the messaging app off the whitelist does not
-  help. An earlier version of this app had the keyholder choose a shared code;
-  that code was harvested from the inbox the first time it was used, which is
-  what killed it. Nothing secret travels inbound anymore.
+  works the way it does. The route is Termux, not adb — verified on the Moto
+  2026-08-21:
+
+  | caller | `READ_SMS` | can dump the inbox |
+  |---|---|---|
+  | `adb shell` (uid 2000) | no | no — `SecurityException` from `SmsProvider` |
+  | `com.termux.api` | `granted=true` | **yes**, via `termux-sms-list` |
+
+  So `adb shell content query --uri content://sms/inbox` fails here, though it
+  succeeds on devices whose platform grants shell `READ_SMS` — do not rely on the
+  denial. The operator's real read path is ssh into Termux and `termux-sms-list`.
+  Note that **de-whitelisting Termux would not close it**: lock-task governs what
+  can come to the foreground, not what an app daemon may read, and its sshd runs
+  either way. An earlier version of this app had the keyholder choose a shared
+  code; that code was harvestable from the inbox the first time it was used,
+  which is what killed it. Nothing secret travels inbound anymore.
 
 What this design does guarantee is that getting out is **deliberate, total, and
 visible** — a wipe or a re-flash, never a quiet override. And because every
@@ -158,8 +167,9 @@ request texts the keyholder, an attempt is an alert by construction.
 This device is also the SMS relay for a separate project (`motosms`), so the two
 share an inbox. They do not collide:
 
-- `motosms watch` polls `termux-sms-list` and dispatches only messages whose id
-  is newer than its stored cursor **and** whose sender is in `~/motosms/allow`.
+- `motosms watch` polls `termux-sms-list` — the same Termux `READ_SMS` grant
+  discussed above — and dispatches only messages whose id is newer than its
+  stored cursor **and** whose sender is in `~/motosms/allow`.
   Keyholder commands come from a number that is not on that list, so they are
   logged as dropped and never reach the handler. The guard sees them by an
   entirely different route — the `SMS_RECEIVED` broadcast.
