@@ -62,33 +62,63 @@
                 android:textColor="@color/text"
                 android:textSize="15sp"
                 android:text="Keyholder: —" />
+
+            <TextView
+                android:id="@+id/statusPending"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:text="" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/changePin"
+        <!-- Receipts only. Setting this authorizes nothing, so it is safe at
+             tier 2 — pointing it elsewhere only silences your own copies. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Send my receipts to"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
+        <EditText
+            android:id="@+id/ownerNumber"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_field"
+            android:inputType="phone"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:hint="your number (blank = off)" />
+
+        <Button
+            android:id="@+id/saveOwner"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="8dp"
             android:background="@drawable/btn_ghost"
-            android:text="Change PIN"
+            android:text="Save"
             android:textAllCaps="false"
             android:textColor="@color/text" />
 
-        <Button
-            android:id="@+id/standDown"
+        <TextView
+            android:id="@+id/ownerMsg"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/btn_ghost"
-            android:text="Open kiosk (device owner kept)"
-            android:textAllCaps="false"
-            android:textColor="@color/text" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/accent"
+            android:textSize="12sp" />
 
         <Button
             android:id="@+id/keyholder"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="28dp"
             android:background="@drawable/btn_ghost"
             android:text="Keyholder actions…"
             android:textAllCaps="false"
@@ -98,7 +128,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Rotate code, hand over, release. Needs the keyholder's SMS code, not the PIN."
+            android:text="Open or lock the kiosk, set the PIN, hand over, release. Each one texts the keyholder six digits to confirm."
             android:textColor="@color/muted"
             android:textSize="12sp" />
 

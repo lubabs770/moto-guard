@@ -18,87 +18,112 @@ There are two roles and they are deliberately not the same person.
 - **Operator** — carries the device. Sees status, opens whitelisted apps, and
   has no way to unlock anything.
 - **Keyholder** — a phone number, somewhere else. Controls the device entirely
-  by SMS, chooses their own code, and can hand the role to someone else.
+  by SMS and can hand the role to someone else. Needs no code and no apps.
 
-The keyholder's code is chosen **by them, over the air, after the APK is
-installed**. It is never a build constant, never a CI secret, never in git. The
-person who builds and flashes the APK does not learn it.
+**There is no code.** The keyholder memorizes nothing and installs nothing —
+which matters, because the keyholder here carries a filtered phone with no
+browser, no app store and no apps. All they ever do is send and read texts.
+
+### How a command is authorized
+
+A text arriving from the keyholder's number proves nothing: caller ID is
+forgeable by anyone with an SMS gateway. So a command does not execute. It raises
+a **challenge** — six digits, minted on the device and texted to the number *on
+record*, never to whoever sent the command:
+
+```
+keyholder ──"MG open"──────────────▶ guard
+keyholder ◀──"confirm OPEN? Reply MG Y 481920 within 5 min"── guard
+owner     ◀──"keyholder requested OPEN, awaiting their confirmation"── guard
+keyholder ──"MG Y 481920"──────────▶ guard      → kiosk opens
+owner     ◀──"kiosk opened"── guard
+```
+
+Only someone who can actually receive mail at that number sees the digits.
+Echoing them back is the proof. They expire in 5 minutes, and any echo burns the
+challenge — right or wrong — so guessing gets one try in a million.
 
 ### Enrollment (once)
 
 1. A fresh install has no keyholder. The guard screen shows an **enrollment
    token** — eight characters, ambiguity-free alphabet, meant to be read off the
    glass and handed over.
-2. The keyholder texts the device:
-   ```
-   MG <TOKEN> claim THEIRCODE
-   ```
-3. Their number and a salted hash of their code are recorded, the token is
-   destroyed, and enrollment closes. **It cannot re-open from the device.** Only
-   the current keyholder can start a handover.
+2. The keyholder texts the device: `MG claim <TOKEN>`
+3. Their number is recorded, the token is destroyed, and enrollment closes. **It
+   cannot re-open from the device.** Only the current keyholder can start a
+   handover.
 
 ### Handover
 
 ```
-MG <code> handover +15551234567     # invite; you stay keyholder until they claim
-MG <code> handover cancel           # abort
+MG handover +15551234567     # invite; you stay keyholder until they claim
+MG handover cancel           # abort
 ```
-The invitee is texted a fresh token and has 24 hours to send
-`MG <TOKEN> claim THEIRCODE`. When they do, the outgoing keyholder is told.
-The same flow is available at the glass under **Keyholder actions**, which shows
-the token instead of texting it — for when there's no service.
+The invitee is texted a fresh token and has 24 hours to send `MG claim <TOKEN>`.
+When they do, the outgoing keyholder is told. The same flow is available at the
+glass under **Keyholder actions**.
 
 ## Commands
 
-Sent as `MG <code> <command> [arg]` from the keyholder's number.
+Sent as `MG <command> [arg]` from the keyholder's number.
 
-| Command | Effect | Reversible |
-|---|---|---|
-| `help` | list the commands | — |
-| `status` | owner / kiosk / PIN / keyholder state | — |
-| `open` | **stand down**: leave kiosk, restore launcher + Settings + status bar, **keep Device Owner** | yes, `lock` |
-| `lock` | re-arm the kiosk | yes, `open` |
-| `pin <4-8 digits>` | set the at-the-glass PIN | yes |
-| `code <new>` | rotate the SMS code | yes |
-| `handover <number>` | transfer the role | see above |
-| `release CONFIRM` | full un-provision, drops Device Owner | **no** |
+| Command | Effect | Confirm? | Reversible |
+|---|---|---|---|
+| `help` | what to do, in one message | no | — |
+| `status` | owner / kiosk / PIN / keyholder state | no | — |
+| `open` | **stand down**: leave kiosk, restore launcher + Settings + status bar, **keep Device Owner** | yes | yes, `lock` |
+| `lock` | re-arm the kiosk | yes | yes, `open` |
+| `pin <4-8 digits>` | set the at-the-glass PIN | yes | yes |
+| `owner <number>` | where the operator's receipts go | no | yes |
+| `handover <number>` | transfer the role | yes | see above |
+| `release CONFIRM` | full un-provision, drops Device Owner | yes | **no** |
 
 `open` is the everyday one. A stand-down persists across reboot —
 `Policy.apply()` is a no-op while it's active — so a power cycle cannot silently
 re-kiosk the device out from under whoever was let in.
 
 Anything that isn't a well-formed, authenticated command is dropped in **total
-silence**: no reply, no error, not even for a wrong code. A stranger texting the
-device cannot establish that it is listening. `help` is for the person who holds
-the code and forgot the verbs.
+silence**: no reply, no error, not even a rejection. A stranger texting the
+device cannot establish that it is listening. `help` is for the keyholder, and it
+fits in one message — there is nothing to learn but the verbs and the dance.
 
 ## The three tiers on the glass
 
 | Tier | Gate | What's there |
 |---|---|---|
 | Public | none | Read-only state, enrollment token, "Open &lt;app&gt;" buttons |
-| Panel | PIN | Change PIN, open the kiosk, status |
-| Keyholder actions | keyholder **code** | Rotate code, handover, release |
+| Panel | PIN | Status, and where the operator's receipts go. Nothing that changes the device. |
+| Keyholder actions | the **dance** | Open, lock, set PIN, handover, release — each one texts the keyholder six digits |
 
-The PIN belongs to the keyholder, not the operator — it is set remotely
-(`MG <code> pin 1234`) or in person, and **there is no default**. A fresh install
-has no PIN and no panel, so re-flashing the APK never yields a known key.
+Buttons in the deep tier only *request*. Reaching that screen with the PIN grants
+nothing, because the digits that authorize go to a handset the operator does not
+hold. That is why the panel can afford to be almost empty.
+
+The PIN still earns its place: without it anyone at the glass could stand there
+raising requests and pelting the keyholder with confirmation texts.
+
+The PIN is set remotely (`MG pin 1234`), and **there is no default**. A fresh
+install has no PIN and no panel, so re-flashing the APK never yields a known key.
 
 PIN failures escalate: four free tries, then 1 minute, 2, 4, 8, capped at an
 hour, and the lockout is **persisted** — whoever is at the glass has unlimited
 time and can power-cycle at will.
 
-The deep tier is gated on the code rather than the PIN on purpose: a PIN
-shoulder-surfed or ground down by patient guessing buys the kiosk being opened,
-and nothing irreversible.
+A PIN shoulder-surfed or ground down by patient guessing therefore buys a view of
+the status screen, and nothing else.
 
 ## Threat model — read this part
 
 The adversary this defends against is **the operator**: the person holding the
 device, who does not want to be able to unlock it.
 
-**What holds.** The code exists nowhere they can read it — not in git, not in CI,
-not in the APK, and app-private storage needs root. There is no PIN default, no
+**What holds.** There is no shared secret to steal, because there is no shared
+secret. The six digits that authorize an action are generated on the Moto and
+sent *outward* to the keyholder's handset; they are never received here, never
+written to the SMS provider (`SmsManager` sends are not recorded there), never
+logged, and the only copy lives in app-private prefs, which needs root to read.
+The operator can forge a command from the keyholder's number all day — the
+challenge still goes to a phone they do not have. There is no PIN default, no
 build-time allow-list, and **no adb escape hatch** (there used to be one; it was
 removed deliberately — an unlock the operator could reach would make the
 keyholder decorative). Every route out goes through the keyholder.
@@ -112,21 +137,39 @@ keyholder decorative). Every route out goes through the keyholder.
 - **Physical access plus recovery wins.** `adb reboot recovery` → wipe, or the
   hardware key combo, factory-resets below the policy layer. No Android device
   blocks that.
-- **Inbound texts are readable on the device.** This is the sharp one. Anything
-  with adb or a whitelisted terminal can read the SMS database —
-  `adb shell content query --uri content://sms/inbox`, or `termux-sms-list` if
-  Termux is whitelisted. Keeping the messaging app out of the lock-task list does
-  **not** prevent this; lock-task only governs what can come to the foreground,
-  not what a shell can read. **So an operator with adb learns the code the first
-  time the keyholder uses it.**
-
-That last point is the real limit of the plain-code scheme, and the fix is
-rolling one-time codes (a hash chain: each code dies as it is used, so reading
-the inbox teaches you nothing about the next one). `Keyholder.verifyCode` is the
-only place that would change.
+- **Inbound texts are readable on the device**, and that is *why* the design
+  works the way it does. Anything with adb or a whitelisted terminal can dump the
+  SMS database — `adb shell content query --uri content://sms/inbox`, or
+  `termux-sms-list`. Lock-task only governs what can come to the foreground, not
+  what a shell can read, so keeping the messaging app off the whitelist does not
+  help. An earlier version of this app had the keyholder choose a shared code;
+  that code was harvested from the inbox the first time it was used, which is
+  what killed it. Nothing secret travels inbound anymore.
 
 What this design does guarantee is that getting out is **deliberate, total, and
-visible** — a wipe or a re-flash, never a quiet override.
+visible** — a wipe or a re-flash, never a quiet override. And because every
+request texts the keyholder, an attempt is an alert by construction.
+
+## Living with the motosms pipeline
+
+This device is also the SMS relay for a separate project (`motosms`), so the two
+share an inbox. They do not collide:
+
+- `motosms watch` polls `termux-sms-list` and dispatches only messages whose id
+  is newer than its stored cursor **and** whose sender is in `~/motosms/allow`.
+  Keyholder commands come from a number that is not on that list, so they are
+  logged as dropped and never reach the handler. The guard sees them by an
+  entirely different route — the `SMS_RECEIVED` broadcast.
+- **Never add the keyholder to `~/motosms/allow`.** That file feeds a handler
+  running with permissions disabled; an entry there is a shell on the workstation,
+  not a moto-guard permission. The guard does not need it and never will.
+- The guard is the more robust listener of the two: `SMS_RECEIVED` is delivered
+  by the telephony framework to every `RECEIVE_SMS` holder, independent of the
+  default SMS app — so an outage of the messaging app does not deafen it.
+- **Do not add an inbox purge.** Besides being pointless now that nothing secret
+  travels inbound, `motosms watch` seeds its cursor from the newest inbox row; if
+  that row has just been deleted the cursor comes back lower on restart and old
+  messages get re-dispatched.
 
 ## Policy applied as Device Owner
 
@@ -141,7 +184,7 @@ visible** — a wipe or a re-flash, never a quiet override.
 **Why SMS and not MMS.** `SMS_RECEIVED` is broadcast to every app holding
 `RECEIVE_SMS`, so the guard listens without displacing the device's real SMS app.
 Inbound MMS reaches only the *default* SMS app (`WAP_PUSH_DELIVER`), so accepting
-it would mean taking that role over — a large change for no gain, since a code
+it would mean taking that role over — a large change for no gain, since a command
 fits in a text.
 
 ## Build — CI only

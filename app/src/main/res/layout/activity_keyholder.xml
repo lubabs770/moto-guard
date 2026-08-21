@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tier 3: the actions that can end the arrangement. Gated on the keyholder's
-     SMS code, which the operator is not supposed to know, so a guessed or
-     shoulder-surfed PIN never reaches this far. -->
+<!-- Tier 3. The buttons only REQUEST; the six digits that authorize go to the
+     keyholder's handset, so reaching this screen with the PIN grants nothing. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -27,48 +26,53 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="Each action re-checks the keyholder code."
+            android:text="These only request. The keyholder is texted six digits and nothing happens until those come back."
             android:textColor="@color/muted"
             android:textSize="13sp" />
 
-        <EditText
-            android:id="@+id/code"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="20dp"
-            android:background="@drawable/bg_field"
-            android:inputType="textPassword"
-            android:textColor="@color/text"
-            android:textColorHint="@color/muted"
-            android:paddingLeft="14dp"
-            android:paddingRight="14dp"
-            android:hint="keyholder code" />
-
-        <!-- Rotate -->
-        <EditText
-            android:id="@+id/newCode"
+        <Button
+            android:id="@+id/open"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="24dp"
-            android:background="@drawable/bg_field"
-            android:inputType="text"
-            android:textColor="@color/text"
-            android:textColorHint="@color/muted"
-            android:paddingLeft="14dp"
-            android:paddingRight="14dp"
-            android:hint="new code (6-32 letters or digits)" />
+            android:background="@drawable/btn_ghost"
+            android:text="Request open kiosk"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
 
         <Button
-            android:id="@+id/rotate"
+            android:id="@+id/lock"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="10dp"
             android:background="@drawable/btn_ghost"
-            android:text="Rotate code"
+            android:text="Request re-arm kiosk"
             android:textAllCaps="false"
             android:textColor="@color/text" />
 
-        <!-- Handover -->
+        <EditText
+            android:id="@+id/newPin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_field"
+            android:inputType="numberPassword"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:hint="new PIN (4-8 digits)" />
+
+        <Button
+            android:id="@+id/setPin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/btn_ghost"
+            android:text="Request set PIN"
+            android:textAllCaps="false"
+            android:textColor="@color/text" />
+
         <EditText
             android:id="@+id/newNumber"
             android:layout_width="match_parent"
@@ -88,7 +92,7 @@
             android:layout_height="52dp"
             android:layout_marginTop="10dp"
             android:background="@drawable/btn_ghost"
-            android:text="Start handover"
+            android:text="Request handover"
             android:textAllCaps="false"
             android:textColor="@color/text" />
 
@@ -96,18 +100,65 @@
             android:id="@+id/release"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="28dp"
             android:background="@drawable/btn_danger"
-            android:text="Release device (unmanage)"
+            android:text="Request release (unmanage)"
             android:textAllCaps="false"
             android:textColor="@color/danger" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="28dp"
+            android:background="@color/field" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Confirm"
+            android:textColor="@color/text"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Enter the six digits texted to the keyholder. Expires in 5 minutes, one attempt."
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/digits"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_field"
+            android:inputType="number"
+            android:maxLength="6"
+            android:gravity="center"
+            android:letterSpacing="0.3"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted"
+            android:hint="000000" />
+
+        <Button
+            android:id="@+id/confirm"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/btn_primary"
+            android:text="Confirm"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:textColor="@color/onAccent" />
 
         <TextView
             android:id="@+id/msg"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:fontFamily="monospace"
             android:textColor="@color/accent"
             android:textSize="13sp" />
     </LinearLayout>

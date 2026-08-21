@@ -21,9 +21,6 @@ object Policy {
     private const val PREFS = "guard"
     private const val KEY_STOOD_DOWN = "stood_down"
 
-    /** The SMS gateway — the reason this box exists. Whitelisted alongside us. */
-    const val SMS_PKG = "me.capcom.smsgateway"
-
     /** Termux — persistent ssh foothold (sshd on :8022 over Tailscale). Whitelisted
      *  so its UI can foreground for setup/maintenance. Its sshd is app-uid (not adb),
      *  so it can't touch device policy — safe to expose. */
@@ -34,7 +31,7 @@ object Policy {
     )
 
     /** Lock-task whitelist: only these packages may hold the foreground. */
-    private fun lockTaskPackages(ctx: Context) = arrayOf(ctx.packageName, SMS_PKG, TERMUX_PKG)
+    private fun lockTaskPackages(ctx: Context) = arrayOf(ctx.packageName, TERMUX_PKG)
 
     /**
      * The whitelisted apps the guard offers as public "Open X" launchers — the

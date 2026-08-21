@@ -1,17 +1,20 @@
 package com.lubabs770.motoguard
 
 import android.content.Context
-import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
  * Who holds the key — and it is deliberately not the person holding the phone.
  *
  * The guard is an accountability lock: the operator carries the device, a
- * remote *keyholder* controls it by SMS. The keyholder chooses their own code,
- * over the air, and it is stored here salted and hashed. It is never a build
- * constant, never a CI secret, never in git — so whoever builds and flashes the
- * APK still does not learn it.
+ * remote *keyholder* controls it by SMS.
+ *
+ * There is no code here, and that is the point. An earlier design stored a
+ * keyholder-chosen secret; it was removed once it became clear the operator can
+ * read every inbound text on this device anyway (`content query --uri
+ * content://sms/inbox`, `termux-sms-list`), so any code the keyholder ever typed
+ * was harvested on first use. The role is now a phone number, and proof of
+ * holding that number is a challenge sent to it — see Challenge.
  *
  * Enrollment is trust-on-first-use, once:
  *
@@ -32,8 +35,7 @@ object Keyholder {
 
     private const val PREFS = "keyholder"
     private const val K_NUMBER = "number"
-    private const val K_HASH = "code_hash"
-    private const val K_SALT = "salt"
+    private const val K_OWNER = "owner_number"
     private const val K_ENROLLED = "enrolled"
     private const val K_TOKEN = "enroll_token"
     private const val K_PEND_NUMBER = "pending_number"
@@ -55,18 +57,8 @@ object Keyholder {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    private fun hash(salt: String, code: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest((salt + code).toByteArray())
-            .joinToString("") { "%02x".format(it) }
-
     private fun newToken(): String =
         (1..TOKEN_LEN).map { ALPHABET[rng.nextInt(ALPHABET.length)] }.joinToString("")
-
-    private fun newSalt(): String {
-        val b = ByteArray(16).also { rng.nextBytes(it) }
-        return b.joinToString("") { "%02x".format(it) }
-    }
 
     /** Compare on the last 10 digits, so +1 732-664-2170 and 7326642170 match. */
     fun normalize(num: String?): String =
@@ -111,26 +103,24 @@ object Keyholder {
         return want.length == 10 && want == normalize(number(ctx))
     }
 
-    fun verifyCode(ctx: Context, code: String): Boolean {
-        val p = prefs(ctx)
-        val salt = p.getString(K_SALT, null) ?: return false
-        val want = p.getString(K_HASH, null) ?: return false
-        return constantEquals(hash(salt, code), want)
-    }
+    /**
+     * Where the operator's receipts go. A notification sink and nothing else —
+     * it authorizes nothing, so it is safe to let the operator set it at the
+     * glass. Pointing it at nothing only silences their own copies, and it can
+     * never become the keyholder; that takes a handover.
+     */
+    fun ownerNumber(ctx: Context): String? = prefs(ctx).getString(K_OWNER, null)
 
-    /** Rotate the code in place, keeping the same keyholder number. */
-    fun setCode(ctx: Context, code: String) {
-        val salt = newSalt()
-        prefs(ctx).edit().putString(K_SALT, salt).putString(K_HASH, hash(salt, code)).apply()
+    fun setOwnerNumber(ctx: Context, num: String?) {
+        val e = prefs(ctx).edit()
+        if (num.isNullOrBlank()) e.remove(K_OWNER) else e.putString(K_OWNER, num)
+        e.apply()
     }
 
     /** Claim the role. Closes enrollment and clears any pending handover. */
-    fun enroll(ctx: Context, from: String, code: String) {
-        val salt = newSalt()
+    fun enroll(ctx: Context, from: String) {
         prefs(ctx).edit()
             .putString(K_NUMBER, from)
-            .putString(K_SALT, salt)
-            .putString(K_HASH, hash(salt, code))
             .putBoolean(K_ENROLLED, true)
             .remove(K_TOKEN)
             .remove(K_PEND_NUMBER)

@@ -33,8 +33,11 @@ class SmsControlReceiver : BroadcastReceiver() {
         val body = parts.joinToString("") { it.messageBody ?: "" }
 
         val result = ControlApi.handle(ctx, from, body)
+        // The reply goes to whoever sent this; `notify` goes to the numbers on
+        // record. A challenge is always in `notify`, never in `reply` — that is
+        // what stops a forged sender from receiving the digits it needs.
         if (result.reply.isNotEmpty()) send(from, result.reply)
-        result.notify?.let { (to, text) -> send(to, text) }
+        for ((to, text) in result.notify) send(to, text)
     }
 
     /**

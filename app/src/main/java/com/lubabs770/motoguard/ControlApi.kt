@@ -3,101 +3,76 @@ package com.lubabs770.motoguard
 import android.content.Context
 
 /**
- * The keyholder's command surface. Everything the role can do, it does from
- * here — there is no second, quieter path. The old adb escape hatch is gone on
- * purpose: an escape only the operator could reach would have made the whole
- * arrangement decorative.
+ * The keyholder's command surface, and the only way anything changes.
  *
- * Wire format, one line:
+ * Nothing here executes on the strength of a message arriving. A command from
+ * the keyholder's number *requests* an action; the guard then texts six digits
+ * to the number **on record** and waits for them to come back. Caller ID is
+ * forgeable, receiving someone else's mail is not, so the echo is the proof.
  *
- *     MG <credential> <command> [arg]
+ * Wire format:
  *
- * <credential> is the enrollment token for `claim`, and the keyholder's own code
- * for everything else.
+ *     MG <command> [arg]
+ *     MG Y <digits>            - confirm the pending request
  *
- *   claim <code>            - take the keyholder role (see Keyholder)
- *   help                    - list the commands
- *   status                  - owner / kiosk / PIN / keyholder state
- *   open                    - stand down: leave kiosk, keep Device Owner
- *   lock                    - re-arm the kiosk
- *   pin <4-8 digits>        - set the at-the-glass PIN
- *   code <new>              - rotate the SMS code
- *   handover <number>       - invite a new keyholder; `handover cancel` aborts
- *   release CONFIRM         - un-provision entirely. One way.
+ *   claim <token>       - take the keyholder role on a virgin device
+ *   help                - what to do, in one message
+ *   status              - owner / kiosk / PIN / keyholder state
+ *   open                - stand down: leave kiosk, keep Device Owner
+ *   lock                - re-arm the kiosk
+ *   pin <4-8 digits>    - set the at-the-glass PIN
+ *   owner <number>      - where the operator's receipts go
+ *   handover <number>   - invite a new keyholder; `handover cancel` aborts
+ *   release CONFIRM     - un-provision entirely. One way.
  *
- * Anything that isn't a well-formed, authenticated command is dropped in total
- * silence — no reply, no error. A stranger texting this device cannot even
- * establish that it is listening.
+ * `help`, `status` and `claim` answer directly. Everything else takes the dance.
+ *
+ * Anything not well-formed and not from the keyholder's number is dropped in
+ * total silence — no reply, no error. A stranger cannot establish that this
+ * device is listening.
+ *
+ * NOTE ON REPLAY: there is deliberately no body-hash replay check anymore. The
+ * dance makes one unnecessary — a captured `MG open` re-sent later only raises a
+ * fresh challenge, which goes to the keyholder's handset, not the replayer's —
+ * and it actively got in the way, since `MG open` is a thing one sends
+ * repeatedly over a week.
  */
 object ControlApi {
 
-    /** Cheap first token, so ordinary texts die before any hashing happens. */
     const val PREFIX = "MG"
 
     private const val PREFS = "control"
-    private const val KEY_SEEN = "seen"
     private const val KEY_WINDOW = "window_start"
     private const val KEY_COUNT = "window_count"
-
     private const val WINDOW_MS = 10 * 60 * 1000L
-    private const val MAX_PER_WINDOW = 6
-    private const val SEEN_KEEP = 20
-    private const val SEEN_TTL_MS = 30 * 60 * 1000L
+    private const val MAX_PER_WINDOW = 10
 
-    private val CODE_RE = Regex("[A-Za-z0-9]{6,32}")
     private val PIN_RE = Regex("\\d{4,8}")
+    private val DIGITS_RE = Regex("\\d{6}")
+
+    /** Verbs that change something, and therefore need confirming. */
+    private val GUARDED = setOf("open", "lock", "pin", "owner", "handover", "release")
 
     /**
-     * [reply] goes back to the sender; empty means stay silent. [notify] is an
-     * optional second message to a different number — used when a handover has
-     * to reach both the outgoing and incoming keyholder.
+     * [reply] goes to the sender; empty means stay silent. [notify] is every
+     * other message to send — the challenge to the keyholder, receipts to the
+     * owner, an invitation to an incoming keyholder.
      */
     data class Result(
         val ok: Boolean,
         val reply: String,
-        val notify: Pair<String, String>? = null
+        val notify: List<Pair<String, String>> = emptyList()
     )
 
     private val SILENT = Result(false, "")
 
     private const val HELP =
-        "moto-guard: send MG CODE then one of: help / status / open / lock / " +
-            "pin 1234 / code NEWCODE / handover +15551234567 / release CONFIRM. " +
-            "open = kiosk off, device owner kept. lock = re-arm."
+        "moto-guard: text MG then one of: status / open / lock / pin 1234 / " +
+            "handover NUMBER / release CONFIRM. Anything that changes the device, " +
+            "I text you 6 digits back - reply MG Y then those digits, within 5 min. " +
+            "open = unlock the kiosk. lock = re-arm it. status needs no confirming."
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    private fun sha256(s: String): String =
-        java.security.MessageDigest.getInstance("SHA-256")
-            .digest(s.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-
-    /**
-     * Reject a body already executed in the last SEEN_TTL_MS. Blocks a captured
-     * message being replayed and stops a carrier redelivery firing `release`
-     * twice, while still letting the same command be sent again later — `status`
-     * is a thing people send repeatedly.
-     */
-    private fun replayed(ctx: Context, body: String): Boolean {
-        val now = System.currentTimeMillis()
-        val h = sha256(body)
-        val live = prefs(ctx).getString(KEY_SEEN, "")!!
-            .split(",")
-            .filter { it.isNotEmpty() }
-            .mapNotNull { e ->
-                val at = e.substringAfter(':', "").toLongOrNull() ?: return@mapNotNull null
-                if (now - at > SEEN_TTL_MS) null else e.substringBefore(':') to at
-            }
-        if (live.any { it.first == h }) return true
-        prefs(ctx).edit()
-            .putString(
-                KEY_SEEN,
-                (live + (h to now)).takeLast(SEEN_KEEP)
-                    .joinToString(",") { "${it.first}:${it.second}" }
-            )
-            .apply()
-        return false
-    }
 
     private fun rateLimited(ctx: Context): Boolean {
         val now = System.currentTimeMillis()
@@ -110,135 +85,217 @@ object ControlApi {
         return count > MAX_PER_WINDOW
     }
 
+    // ---- entry points ---------------------------------------------------
+
     fun handle(ctx: Context, from: String?, body: String): Result {
         val words = body.trim().split(Regex("\\s+"))
-        if (words.size < 3) return SILENT
+        if (words.size < 2) return SILENT
         if (!words[0].equals(PREFIX, ignoreCase = true)) return SILENT
 
-        val cred = words[1]
-        val cmd = words[2].lowercase()
-        val arg = words.getOrNull(3) ?: ""
+        val cmd = words[1].lowercase()
+        val arg = words.getOrNull(2) ?: ""
 
-        // `claim` is the only command reachable by someone who is not yet the
-        // keyholder — it is how one becomes the keyholder.
-        if (cmd == "claim") return claim(ctx, from, cred, arg)
+        // The only command reachable by someone who is not yet the keyholder —
+        // it is how one becomes the keyholder.
+        if (cmd == "claim") return claim(ctx, from, arg)
 
-        // Everything else: right number AND right code. The number alone proves
-        // nothing (caller ID is forgeable) and the code alone proves nothing
-        // (it may have been read off a screen); both together is the gate.
         if (!Keyholder.isEnrolled(ctx)) return SILENT
         if (!Keyholder.isSender(ctx, from)) return SILENT
-        if (!Keyholder.verifyCode(ctx, cred)) return SILENT
+        if (rateLimited(ctx)) return SILENT
 
-        if (replayed(ctx, body)) return Result(false, "moto-guard: duplicate ignored")
-        if (rateLimited(ctx)) return Result(false, "moto-guard: rate limited, wait 10 min")
-
-        return when (cmd) {
-            "help" -> Result(true, HELP)
-
-            "status" -> Result(true, status(ctx))
-
-            "open" -> {
-                if (!Policy.isOwner(ctx)) Result(false, "moto-guard: not device owner, nothing to open")
-                else {
-                    Policy.standDown(ctx)
-                    Result(true, "moto-guard: kiosk OFF, device owner kept. Send LOCK to re-arm.")
-                }
-            }
-
-            "lock" -> {
-                if (!Policy.isOwner(ctx)) Result(false, "moto-guard: not device owner, cannot lock")
-                else {
-                    Policy.rearm(ctx)
-                    Result(true, "moto-guard: kiosk re-armed.")
-                }
-            }
-
-            "pin" -> {
-                if (!PIN_RE.matches(arg)) Result(false, "moto-guard: pin needs 4 to 8 digits")
-                else {
-                    PinStore.setPin(ctx, arg)
-                    Result(true, "moto-guard: PIN set. It opens the on-screen panel.")
-                }
-            }
-
-            "code" -> {
-                if (!CODE_RE.matches(arg)) {
-                    Result(false, "moto-guard: code needs 6 to 32 letters or digits, no punctuation")
-                } else {
-                    Keyholder.setCode(ctx, arg)
-                    Result(true, "moto-guard: code rotated. The old one is dead.")
-                }
-            }
-
-            "handover" -> handover(ctx, arg)
-
-            "release" -> {
-                if (arg != "CONFIRM") {
-                    Result(false, "moto-guard: release needs the word CONFIRM. It drops device owner for good.")
-                } else {
-                    Policy.release(ctx)
-                    Result(true, "moto-guard: RELEASED. Device unmanaged. Re-provisioning needs adb and zero accounts.")
-                }
-            }
-
+        return when {
+            cmd == "y" || cmd == "yes" -> confirm(ctx, arg)
+            cmd == "help" -> Result(true, HELP)
+            cmd == "status" -> Result(true, status(ctx))
+            cmd in GUARDED -> request(ctx, cmd, arg)
             else -> Result(false, HELP)
         }
+    }
+
+    /** Tier-3 screen: same dance, raised from the glass instead of a text. */
+    fun requestFromGlass(ctx: Context, verb: String, arg: String): Result =
+        if (!Keyholder.isEnrolled(ctx)) Result(false, "No keyholder enrolled yet.")
+        else request(ctx, verb, arg)
+
+    /** Tier-3 screen: the keyholder types the digits they were texted. */
+    fun confirmFromGlass(ctx: Context, digits: String): Result = confirm(ctx, digits)
+
+    // ---- the dance ------------------------------------------------------
+
+    /**
+     * Validate, then raise a challenge. Validation happens first so a typo
+     * doesn't burn a challenge or spend the keyholder's rate-limit window.
+     */
+    private fun request(ctx: Context, verb: String, arg: String): Result {
+        when (verb) {
+            "pin" -> if (!PIN_RE.matches(arg))
+                return Result(false, "moto-guard: pin needs 4 to 8 digits")
+            "owner" -> if (arg.isNotEmpty() && Keyholder.normalize(arg).length != 10)
+                return Result(false, "moto-guard: owner needs a phone number, or nothing to clear it")
+            "handover" -> if (!arg.equals("cancel", true) && Keyholder.normalize(arg).length != 10)
+                return Result(false, "moto-guard: handover needs a phone number, or the word cancel")
+            "release" -> if (arg != "CONFIRM")
+                return Result(false, "moto-guard: release needs the word CONFIRM. It drops device owner for good.")
+            "open", "lock" -> if (!Policy.isOwner(ctx))
+                return Result(false, "moto-guard: not device owner, nothing to do")
+        }
+
+        // `handover cancel` and `owner` are housekeeping on the keyholder's own
+        // record; they change nothing about the lock, so they skip the dance.
+        if (verb == "handover" && arg.equals("cancel", true)) return execute(ctx, verb, arg)
+        if (verb == "owner") return execute(ctx, verb, arg)
+
+        if (Challenge.throttled(ctx)) return SILENT
+
+        val to = Keyholder.number(ctx) ?: return SILENT
+
+        // A challenge still sitting here unanswered means the last request was
+        // never confirmed — the fingerprint of someone forging the number, since
+        // they can raise a challenge but never receive it.
+        val stale = Challenge.reapUnanswered(ctx)
+        val digits = Challenge.issue(ctx, verb, arg)
+
+        return Result(
+            true,
+            "",   // the challenge IS the reply, and it goes to the number on record
+            listOf(to to challengeText(verb, digits)) +
+                ownerReceipt(ctx, requestedText(verb)) +
+                suspicion(ctx, stale)
+        )
+    }
+
+    private fun confirm(ctx: Context, digits: String): Result {
+        if (!DIGITS_RE.matches(digits)) {
+            val warn = Challenge.noteUnconfirmed(ctx)
+            return Result(false, "moto-guard: that is not a 6 digit code", suspicion(ctx, warn))
+        }
+        val (verb, arg) = Challenge.consume(ctx, digits)
+            ?: return Result(
+                false,
+                "moto-guard: wrong or expired code. Send the command again for a fresh one.",
+                suspicion(ctx, Challenge.noteUnconfirmed(ctx))
+            )
+        return execute(ctx, verb, arg)
+    }
+
+    /**
+     * Warn the keyholder that requests they did not make are arriving. Sent at
+     * most once an hour so a probe can't turn the guard into a flood of its own.
+     */
+    private fun suspicion(ctx: Context, warn: Boolean): List<Pair<String, String>> {
+        if (!warn) return emptyList()
+        val to = Keyholder.number(ctx) ?: return emptyList()
+        return listOf(
+            to to "moto-guard: several requests from your number went unconfirmed. " +
+                "If that was not you, someone is forging your number. Nothing was changed."
+        )
+    }
+
+    // ---- the verbs ------------------------------------------------------
+
+    private fun execute(ctx: Context, verb: String, arg: String): Result = when (verb) {
+        "open" -> {
+            Policy.standDown(ctx)
+            Result(true, "moto-guard: kiosk OFF, device owner kept. Send MG lock to re-arm.",
+                ownerReceipt(ctx, "kiosk opened"))
+        }
+
+        "lock" -> {
+            Policy.rearm(ctx)
+            Result(true, "moto-guard: kiosk re-armed.", ownerReceipt(ctx, "kiosk re-armed"))
+        }
+
+        "pin" -> {
+            PinStore.setPin(ctx, arg)
+            Result(true, "moto-guard: PIN set. It opens the on-screen panel.",
+                ownerReceipt(ctx, "PIN changed"))
+        }
+
+        "owner" -> {
+            Keyholder.setOwnerNumber(ctx, arg.ifBlank { null })
+            Result(true, if (arg.isBlank()) "moto-guard: owner notifications off."
+                         else "moto-guard: receipts now go to $arg.")
+        }
+
+        "handover" -> {
+            if (arg.equals("cancel", true)) {
+                Keyholder.cancelHandover(ctx)
+                Result(true, "moto-guard: handover cancelled. You are still the keyholder.")
+            } else {
+                val token = Keyholder.startHandover(ctx, arg)
+                Result(
+                    true,
+                    "moto-guard: invited $arg. They have 24h to claim it. You stay keyholder until they do.",
+                    listOf(
+                        arg to "moto-guard: you have been offered the keyholder role. " +
+                            "To accept, text this number: MG claim $token"
+                    ) + ownerReceipt(ctx, "new keyholder invited")
+                )
+            }
+        }
+
+        "release" -> {
+            Policy.release(ctx)
+            Result(true, "moto-guard: RELEASED. Device unmanaged. Re-provisioning needs adb and zero accounts.",
+                ownerReceipt(ctx, "device RELEASED, no longer managed"))
+        }
+
+        else -> Result(false, HELP)
     }
 
     /**
      * Two ways in, and only two: the pre-enrollment token on a virgin install,
      * or a live handover invitation addressed to this exact number.
      */
-    private fun claim(ctx: Context, from: String?, token: String, code: String): Result {
-        if (from.isNullOrEmpty()) return SILENT
-        if (!CODE_RE.matches(code)) {
-            // Only answer if the token was right — otherwise stay invisible.
-            val tokenOk = Keyholder.enrollTokenMatches(ctx, token) ||
-                Keyholder.pendingMatches(ctx, from, token)
-            return if (tokenOk) {
-                Result(false, "moto-guard: pick a code of 6 to 32 letters or digits, no punctuation. Send: MG $token claim YOURCODE")
-            } else SILENT
-        }
+    private fun claim(ctx: Context, from: String?, token: String): Result {
+        if (from.isNullOrEmpty() || token.isEmpty()) return SILENT
 
         if (Keyholder.enrollTokenMatches(ctx, token)) {
-            Keyholder.enroll(ctx, from, code)
+            Keyholder.enroll(ctx, from)
             return Result(
                 true,
-                "moto-guard: you are the keyholder. Your code is set and nobody else knows it. " +
-                    "Send MG YOURCODE pin 1234 to set the on-screen PIN, or MG YOURCODE help."
+                "moto-guard: you are the keyholder. You need no code and nothing installed - " +
+                    "when you send a command I text you 6 digits to confirm it. Send MG help.",
+                ownerReceipt(ctx, "keyholder enrolled: ${Keyholder.maskedNumber(ctx)}")
             )
         }
 
         if (Keyholder.pendingMatches(ctx, from, token)) {
             val outgoing = Keyholder.number(ctx)
-            Keyholder.enroll(ctx, from, code)
+            Keyholder.enroll(ctx, from)
+            Challenge.clear(ctx)   // any challenge raised by the old keyholder dies with the role
             return Result(
                 true,
-                "moto-guard: handover complete, you are the keyholder. Send MG YOURCODE help.",
-                notify = outgoing?.let { it to "moto-guard: handover complete. You are no longer the keyholder." }
+                "moto-guard: handover complete, you are the keyholder. Send MG help.",
+                listOfNotNull(
+                    outgoing?.let { it to "moto-guard: handover complete. You are no longer the keyholder." }
+                ) + ownerReceipt(ctx, "keyholder handed over to ${Keyholder.maskedNumber(ctx)}")
             )
         }
 
         return SILENT
     }
 
-    private fun handover(ctx: Context, arg: String): Result {
-        if (arg.equals("cancel", ignoreCase = true)) {
-            Keyholder.cancelHandover(ctx)
-            return Result(true, "moto-guard: handover cancelled. You are still the keyholder.")
-        }
-        if (Keyholder.normalize(arg).length != 10) {
-            return Result(false, "moto-guard: handover needs a phone number, or the word cancel")
-        }
-        val token = Keyholder.startHandover(ctx, arg)
-        return Result(
-            true,
-            "moto-guard: invited $arg. They have 24h to claim it. You stay keyholder until they do.",
-            notify = arg to "moto-guard: you have been offered the keyholder role. " +
-                "To accept, text this number: MG $token claim YOURCODE " +
-                "(your code: 6 to 32 letters or digits, chosen by you, nobody else sees it)."
-        )
+    // ---- message text ---------------------------------------------------
+    //
+    // The challenge and the owner's receipt are built in SEPARATE functions and
+    // must stay that way. The receipt must never carry the six digits: an owner
+    // who could read them would have a complete bypass — forge a command from
+    // the keyholder's number, read the digits off their own receipt, echo them
+    // back forged. Keeping the two apart means no future edit can leak one into
+    // the other by reusing a string.
+
+    private fun challengeText(verb: String, digits: String): String =
+        "moto-guard: confirm ${verb.uppercase()}? Reply MG Y $digits within 5 min. " +
+            "If you did not ask for this, ignore it - someone is forging your number."
+
+    private fun requestedText(verb: String): String =
+        "keyholder requested ${verb.uppercase()}, awaiting their confirmation"
+
+    /** Receipts to the operator. Verbs only — never an argument, never a digit. */
+    private fun ownerReceipt(ctx: Context, what: String): List<Pair<String, String>> {
+        val to = Keyholder.ownerNumber(ctx) ?: return emptyList()
+        return listOf(to to "moto-guard: $what.")
     }
 
     private fun status(ctx: Context): String {
@@ -246,7 +303,11 @@ object ControlApi {
         val kiosk = if (Policy.isStoodDown(ctx)) "open" else "armed"
         val pin = if (PinStore.isSet(ctx)) "set" else "not set"
         val pending = Keyholder.pendingNumber(ctx)
-        val tail = if (pending != null) " handover pending to $pending." else ""
+        val waiting = Challenge.pendingVerb(ctx)
+        val tail = buildString {
+            if (pending != null) append(" Handover pending to $pending.")
+            if (waiting != null) append(" Awaiting your confirm for ${waiting.uppercase()}.")
+        }
         return "moto-guard: owner=$owner kiosk=$kiosk pin=$pin keyholder=${Keyholder.maskedNumber(ctx)}.$tail"
     }
 }
