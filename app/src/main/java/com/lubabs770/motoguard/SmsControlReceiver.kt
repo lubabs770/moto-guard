@@ -48,7 +48,11 @@ class SmsControlReceiver : BroadcastReceiver() {
      */
     private fun send(to: String?, text: String) {
         if (to.isNullOrEmpty()) return
-        val safe = text.filter { it.code in 32..126 }.take(600)
+        // Printable ASCII, PLUS newline. Newline is code 10, so a naive
+        // "in 32..126" filter silently flattens every multi-line message
+        // into one run-on blob. LF is in the GSM-7 alphabet and this
+        // carrier sends it fine.
+        val safe = text.filter { it.code in 32..126 || it == '\n' }.take(600)
         try {
             @Suppress("DEPRECATION")
             val sms = SmsManager.getDefault()

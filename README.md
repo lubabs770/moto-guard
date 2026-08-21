@@ -32,10 +32,10 @@ a **challenge** — six digits, minted on the device and texted to the number *o
 record*, never to whoever sent the command:
 
 ```
-keyholder ──"MG open"──────────────▶ guard
-keyholder ◀──"confirm OPEN? Reply MG Y 481920 within 5 min"── guard
+keyholder ──".open"────────────────▶ guard
+keyholder ◀──"confirm OPEN? Reply .481920 within 5 min"── guard
 owner     ◀──"keyholder requested OPEN, awaiting their confirmation"── guard
-keyholder ──"MG Y 481920"──────────▶ guard      → kiosk opens
+keyholder ──".481920"──────────────▶ guard      → kiosk opens
 owner     ◀──"kiosk opened"── guard
 ```
 
@@ -48,7 +48,7 @@ challenge — right or wrong — so guessing gets one try in a million.
 1. A fresh install has no keyholder. The guard screen shows an **enrollment
    token** — eight characters, ambiguity-free alphabet, meant to be read off the
    glass and handed over.
-2. The keyholder texts the device: `MG claim <TOKEN>`
+2. The keyholder texts the device: `.claim <TOKEN>`
 3. Their number is recorded, the token is destroyed, and enrollment closes. **It
    cannot re-open from the device.** Only the current keyholder can start a
    handover.
@@ -56,16 +56,19 @@ challenge — right or wrong — so guessing gets one try in a million.
 ### Handover
 
 ```
-MG handover +15551234567     # invite; you stay keyholder until they claim
-MG handover cancel           # abort
+.handover +15551234567     # invite; you stay keyholder until they claim
+.handover cancel           # abort
 ```
-The invitee is texted a fresh token and has 24 hours to send `MG claim <TOKEN>`.
+The invitee is texted a fresh token and has 24 hours to send `.claim <TOKEN>`.
 When they do, the outgoing keyholder is told. The same flow is available at the
 glass under **Keyholder actions**.
 
 ## Commands
 
-Sent as `MG <command> [arg]` from the keyholder's number.
+Sent as `.<command> [arg]` from the keyholder's number; a confirmation is just
+`.<digits>`. Parsing is forgiving — leading and trailing space is trimmed, runs of
+whitespace collapse, a space after the dot is fine, and case is ignored, since
+phone keyboards capitalise after a full stop.
 
 | Command | Effect | Confirm? | Reversible |
 |---|---|---|---|
@@ -102,7 +105,7 @@ hold. That is why the panel can afford to be almost empty.
 The PIN still earns its place: without it anyone at the glass could stand there
 raising requests and pelting the keyholder with confirmation texts.
 
-The PIN is set remotely (`MG pin 1234`), and **there is no default**. A fresh
+The PIN is set remotely (`.pin 1234`), and **there is no default**. A fresh
 install has no PIN and no panel, so re-flashing the APK never yields a known key.
 
 PIN failures escalate: four free tries, then 1 minute, 2, 4, 8, capped at an

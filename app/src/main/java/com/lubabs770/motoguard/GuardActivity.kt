@@ -96,7 +96,7 @@ class GuardActivity : Activity() {
             val token = Keyholder.enrollToken(this) ?: ""
             findViewById<TextView>(R.id.enrollToken).text = token
             findViewById<TextView>(R.id.enrollHow).text =
-                "They text this device:\nMG claim $token"
+                "They text this device:\n.claim $token"
         }
 
         // No PIN set means no panel exists to open — say so instead of offering

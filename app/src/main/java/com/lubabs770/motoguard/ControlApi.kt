@@ -10,10 +10,15 @@ import android.content.Context
  * to the number **on record** and waits for them to come back. Caller ID is
  * forgeable, receiving someone else's mail is not, so the echo is the proof.
  *
- * Wire format:
+ * Wire format — a leading dot, then the verb:
  *
- *     MG <command> [arg]
- *     MG Y <digits>            - confirm the pending request
+ *     .<command> [arg]
+ *     .<digits>                - confirm the pending request
+ *
+ * Parsing is forgiving on purpose, because the keyholder is typing on a phone
+ * keypad: leading and trailing space is trimmed, runs of whitespace collapse,
+ * a space after the dot is tolerated (". open"), and case is ignored — phones
+ * love to capitalise the first letter after a full stop.
  *
  *   claim <token>       - take the keyholder role on a virgin device
  *   help                - what to do, in one message
@@ -32,14 +37,14 @@ import android.content.Context
  * device is listening.
  *
  * NOTE ON REPLAY: there is deliberately no body-hash replay check anymore. The
- * dance makes one unnecessary — a captured `MG open` re-sent later only raises a
+ * dance makes one unnecessary — a captured `.open` re-sent later only raises a
  * fresh challenge, which goes to the keyholder's handset, not the replayer's —
- * and it actively got in the way, since `MG open` is a thing one sends
+ * and it actively got in the way, since `.open` is a thing one sends
  * repeatedly over a week.
  */
 object ControlApi {
 
-    const val PREFIX = "MG"
+    const val PREFIX = "."
 
     private const val PREFS = "control"
     private const val KEY_WINDOW = "window_start"
@@ -67,10 +72,19 @@ object ControlApi {
     private val SILENT = Result(false, "")
 
     private const val HELP =
-        "moto-guard: text MG then one of: status / open / lock / pin 1234 / " +
-            "handover NUMBER / release CONFIRM. Anything that changes the device, " +
-            "I text you 6 digits back - reply MG Y then those digits, within 5 min. " +
-            "open = unlock the kiosk. lock = re-arm it. status needs no confirming."
+        "moto-guard commands:\n" +
+            "\n" +
+            ".status - is it locked?\n" +
+            ".open - unlock the kiosk\n" +
+            ".lock - lock it again\n" +
+            ".pin 1234 - set the screen PIN\n" +
+            ".handover NUMBER - pass the key on\n" +
+            ".release CONFIRM - unmanage the device\n" +
+            "\n" +
+            "Anything that changes the device: I text you 6 digits. " +
+            "Reply with a dot and those digits, like .481920 - within 5 min.\n" +
+            "\n" +
+            ".status needs no confirming."
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -88,12 +102,15 @@ object ControlApi {
     // ---- entry points ---------------------------------------------------
 
     fun handle(ctx: Context, from: String?, body: String): Result {
-        val words = body.trim().split(Regex("\\s+"))
-        if (words.size < 2) return SILENT
-        if (!words[0].equals(PREFIX, ignoreCase = true)) return SILENT
+        val trimmed = body.trim()
+        if (!trimmed.startsWith(PREFIX)) return SILENT
 
-        val cmd = words[1].lowercase()
-        val arg = words.getOrNull(2) ?: ""
+        // Drop the dot, then tolerate a space after it and any run of whitespace
+        // between words. The sender is thumbing this into a phone keypad.
+        val words = trimmed.removePrefix(PREFIX).trim().split(Regex("\\s+"))
+        val cmd = words.getOrNull(0)?.lowercase().orEmpty()
+        if (cmd.isEmpty()) return SILENT
+        val arg = words.getOrNull(1) ?: ""
 
         // The only command reachable by someone who is not yet the keyholder —
         // it is how one becomes the keyholder.
@@ -104,7 +121,9 @@ object ControlApi {
         if (rateLimited(ctx)) return SILENT
 
         return when {
-            cmd == "y" || cmd == "yes" -> confirm(ctx, arg)
+            // Six digits in the verb slot is a confirmation. No keyword in front
+            // of it — there is nothing else six digits could mean here.
+            DIGITS_RE.matches(cmd) -> confirm(ctx, cmd)
             cmd == "help" -> Result(true, HELP)
             cmd == "status" -> Result(true, status(ctx))
             cmd in GUARDED -> request(ctx, cmd, arg)
@@ -135,7 +154,7 @@ object ControlApi {
             "handover" -> if (!arg.equals("cancel", true) && Keyholder.normalize(arg).length != 10)
                 return Result(false, "moto-guard: handover needs a phone number, or the word cancel")
             "release" -> if (arg != "CONFIRM")
-                return Result(false, "moto-guard: release needs the word CONFIRM. It drops device owner for good.")
+                return Result(false, "moto-guard: release needs the word CONFIRM, like .release CONFIRM. It drops device owner for good.")
             "open", "lock" -> if (!Policy.isOwner(ctx))
                 return Result(false, "moto-guard: not device owner, nothing to do")
         }
@@ -196,7 +215,7 @@ object ControlApi {
     private fun execute(ctx: Context, verb: String, arg: String): Result = when (verb) {
         "open" -> {
             Policy.standDown(ctx)
-            Result(true, "moto-guard: kiosk OFF, device owner kept. Send MG lock to re-arm.",
+            Result(true, "moto-guard: kiosk OFF, device owner kept. Send .lock to re-arm.",
                 ownerReceipt(ctx, "kiosk opened"))
         }
 
@@ -228,7 +247,7 @@ object ControlApi {
                     "moto-guard: invited $arg. They have 24h to claim it. You stay keyholder until they do.",
                     listOf(
                         arg to "moto-guard: you have been offered the keyholder role. " +
-                            "To accept, text this number: MG claim $token"
+                            "To accept, text this number: .claim $token"
                     ) + ownerReceipt(ctx, "new keyholder invited")
                 )
             }
@@ -255,7 +274,7 @@ object ControlApi {
             return Result(
                 true,
                 "moto-guard: you are the keyholder. You need no code and nothing installed - " +
-                    "when you send a command I text you 6 digits to confirm it. Send MG help.",
+                    "when you send a command I text you 6 digits to confirm it. Send .help",
                 ownerReceipt(ctx, "keyholder enrolled: ${Keyholder.maskedNumber(ctx)}")
             )
         }
@@ -266,7 +285,7 @@ object ControlApi {
             Challenge.clear(ctx)   // any challenge raised by the old keyholder dies with the role
             return Result(
                 true,
-                "moto-guard: handover complete, you are the keyholder. Send MG help.",
+                "moto-guard: handover complete, you are the keyholder. Send .help",
                 listOfNotNull(
                     outgoing?.let { it to "moto-guard: handover complete. You are no longer the keyholder." }
                 ) + ownerReceipt(ctx, "keyholder handed over to ${Keyholder.maskedNumber(ctx)}")
@@ -286,7 +305,10 @@ object ControlApi {
     // the other by reusing a string.
 
     private fun challengeText(verb: String, digits: String): String =
-        "moto-guard: confirm ${verb.uppercase()}? Reply MG Y $digits within 5 min. " +
+        "moto-guard: confirm ${verb.uppercase()}?\n" +
+            "\n" +
+            "Reply .$digits within 5 min.\n" +
+            "\n" +
             "If you did not ask for this, ignore it - someone is forging your number."
 
     private fun requestedText(verb: String): String =
