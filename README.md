@@ -44,6 +44,7 @@ in the transport.
 
 | Command | Effect | Reversible |
 |---|---|---|
+| `help` | list the commands | — |
 | `status` | report owner / kiosk / PIN state | — |
 | `open` | **stand down**: leave kiosk, restore launcher + Settings + status bar, **keep Device Owner** | yes, `lock` |
 | `lock` | re-arm the kiosk | yes, `open` |
@@ -61,6 +62,7 @@ whoever was let in. Only `lock` (or the dashboard) ends it.
 **Over SMS** — text the device from a number on the allow-list:
 
 ```
+MG <SMS_SECRET> help
 MG <SMS_SECRET> open
 MG <SMS_SECRET> pin 4821
 MG <SMS_SECRET> status
@@ -70,6 +72,11 @@ MG <SMS_SECRET> release CONFIRM
 You get a one-line SMS back. Anything else in the inbox is ignored without a
 trace: wrong prefix or wrong secret produces no reply at all, so probing can't
 even confirm the number is a live target.
+
+That silence is total and it is the point — there is no bare `/help`, no menu,
+no "unknown command" for a stranger. A message must already carry the secret
+before the device will admit it is listening. `help` exists for the person who
+*has* the secret and forgot the verbs.
 
 **Over adb** — the original bare broadcast still means "release"; add `cmd` to
 run any other command, and the reply comes back in the result data:

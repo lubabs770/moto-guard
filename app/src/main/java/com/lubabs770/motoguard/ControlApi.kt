@@ -14,6 +14,7 @@ import java.security.MessageDigest
  *     MG <secret> <command> [arg]
  *
  * Commands:
+ *   help            - list the commands
  *   status          - report owner / kiosk / PIN state
  *   open            - stand down: leave kiosk, restore launcher + Settings,
  *                     KEEP Device Owner. Fully reversible with `lock`.
@@ -128,6 +129,8 @@ object ControlApi {
 
         val arg = words.getOrNull(3) ?: ""
         return when (words[2].lowercase()) {
+            "help" -> Result(true, HELP)
+
             "status" -> Result(true, status(ctx))
 
             "open" -> {
@@ -160,9 +163,18 @@ object ControlApi {
                 }
             }
 
-            else -> Result(false, "moto-guard: unknown command. status|open|lock|pin|release")
+            else -> Result(false, HELP)
         }
     }
+
+    /**
+     * Kept to one SMS segment and to base GSM-7 characters only — letters,
+     * digits, space and . : / = — because this carrier cannot send UCS-2 at all
+     * and a single stray character drops the whole reply. No pipes, no dashes.
+     */
+    private const val HELP =
+        "moto-guard: send MG SECRET then one of: help / status / open / lock / " +
+            "pin 1234 / release CONFIRM. open = kiosk off, owner kept. lock = re-arm."
 
     private fun status(ctx: Context): String {
         val owner = if (Policy.isOwner(ctx)) "yes" else "no"
