@@ -100,7 +100,18 @@ object Policy {
         for (p in hiddenApps) dpm.setApplicationHidden(admin, p, true)
     }
 
-    /** The sanctioned escape: full un-provision. Called only behind the PIN / secret. */
+    /**
+     * The sanctioned escape: full un-provision, and the end of the arrangement.
+     *
+     * Reachable only through the keyholder's confirmation, and it takes the
+     * whole arrangement down with it — Device Owner, the keyholder, the PIN, any
+     * pending challenge or handover. Enrollment reopens with a fresh token, so a
+     * re-provisioned device starts from nothing rather than silently restoring a
+     * keyholder who may no longer be involved.
+     *
+     * The wipe lives here, not in the callers, so no future release path can
+     * forget it.
+     */
     fun release(ctx: Context) {
         if (!isOwner(ctx)) return
         val dpm = dpm(ctx)
@@ -116,6 +127,13 @@ object Policy {
         // Relinquish Device Owner entirely. After this the device is normal again.
         @Suppress("DEPRECATION")
         dpm.clearDeviceOwnerApp(ctx.packageName)
+
+        // Ordered last on purpose: if the DPM work above throws, the keyholder
+        // keeps their role and can simply try again, rather than being locked
+        // out of a device that is still managed.
+        Challenge.clear(ctx)
+        PinStore.clear(ctx)
+        Keyholder.reset(ctx)
     }
 
     private fun grantSelf(

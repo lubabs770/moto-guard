@@ -53,6 +53,17 @@ object PinStore {
             .apply()
     }
 
+    /**
+     * Forget the PIN entirely, along with any lockout. The PIN belongs to the
+     * keyholder, so it ends when their role does — leaving it behind would gate
+     * the next arrangement's panel on a secret the previous keyholder chose.
+     */
+    fun clear(ctx: Context) {
+        prefs(ctx).edit()
+            .remove(K_HASH).remove(K_SALT).remove(K_FAILS).remove(K_UNTIL)
+            .apply()
+    }
+
     /** Milliseconds still to wait, or 0 if the wall is open. */
     fun lockedForMs(ctx: Context): Long =
         (prefs(ctx).getLong(K_UNTIL, 0L) - System.currentTimeMillis()).coerceAtLeast(0L)

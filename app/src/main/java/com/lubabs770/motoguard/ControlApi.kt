@@ -255,8 +255,11 @@ object ControlApi {
 
         "release" -> {
             Policy.release(ctx)
-            Result(true, "moto-guard: RELEASED. Device unmanaged. Re-provisioning needs adb and zero accounts.",
-                ownerReceipt(ctx, "device RELEASED, no longer managed"))
+            Result(true,
+                "moto-guard: RELEASED. Device unmanaged and your keyholder role has ended. " +
+                    "The PIN is gone too. Re-provisioning needs adb, zero accounts, and a fresh " +
+                    "enrollment token off the screen.",
+                ownerReceipt(ctx, "device RELEASED, no longer managed, keyholder role ended"))
         }
 
         else -> Result(false, HELP)

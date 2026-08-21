@@ -51,7 +51,20 @@ challenge — right or wrong — so guessing gets one try in a million.
 2. The keyholder texts the device: `.claim <TOKEN>`
 3. Their number is recorded, the token is destroyed, and enrollment closes. **It
    cannot re-open from the device.** Only the current keyholder can start a
-   handover.
+   handover — or a `release`, which ends everything (below).
+
+### Release ends the arrangement
+
+`release` is not just an un-provision. It clears the keyholder, the PIN, and any
+pending challenge or handover along with Device Owner, and mints a **fresh**
+enrollment token next time round. A re-provisioned device therefore starts from
+nothing rather than silently restoring a keyholder who may no longer be involved,
+and the token someone read off the glass last time is dead.
+
+The wipe lives in `Policy.release()` rather than in its callers, so no future
+release path can forget it. It runs *after* the DPM work: if that throws, the
+keyholder keeps their role and can retry, instead of being locked out of a device
+that is still managed.
 
 ### Handover
 
@@ -79,7 +92,7 @@ phone keyboards capitalise after a full stop.
 | `pin <4-8 digits>` | set the at-the-glass PIN | yes | yes |
 | `owner <number>` | where the operator's receipts go | no | yes |
 | `handover <number>` | transfer the role | yes | see above |
-| `release CONFIRM` | full un-provision, drops Device Owner | yes | **no** |
+| `release CONFIRM` | full un-provision: drops Device Owner **and ends the arrangement** | yes | **no** |
 
 `open` is the everyday one. A stand-down persists across reboot —
 `Policy.apply()` is a no-op while it's active — so a power cycle cannot silently

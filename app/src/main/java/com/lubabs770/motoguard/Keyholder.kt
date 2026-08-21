@@ -129,6 +129,27 @@ object Keyholder {
             .apply()
     }
 
+    /**
+     * End the arrangement. Wipes the role, the pending handover and the
+     * enrollment token, so the next provisioning starts from nothing and mints a
+     * FRESH token — the old one must not be reusable by whoever saw it on the
+     * glass last time.
+     *
+     * Called from Policy.release() rather than from its callers, so no future
+     * release path can forget it.
+     */
+    fun reset(ctx: Context) {
+        prefs(ctx).edit()
+            .remove(K_NUMBER)
+            .remove(K_OWNER)
+            .remove(K_ENROLLED)
+            .remove(K_TOKEN)
+            .remove(K_PEND_NUMBER)
+            .remove(K_PEND_TOKEN)
+            .remove(K_PEND_AT)
+            .apply()
+    }
+
     // ---- handover -------------------------------------------------------
 
     /** Mint an invitation for [toNumber] and return the token to text them. */
